@@ -1,25 +1,98 @@
 import { createServer } from 'http';
 import { parse } from 'url';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import next from 'next';
 import { WebSocketServer } from 'ws';
 import { GoogleGenAI, Modality } from '@google/genai';
 
-// Next.js requires .next/prerender-manifest.json in production mode (dev: false).
-// If the prerender manifest is missing or if we're running npm run dev,
-// we MUST run in development mode so Next.js can compile pages dynamically
-// rather than crashing with ENOENT.
-const manifestPath = join(process.cwd(), '.next', 'prerender-manifest.json');
-const hasManifest = existsSync(manifestPath);
-const dev = process.env.NODE_ENV === 'development' || 
-            process.env.npm_lifecycle_event === 'dev' || 
-            !hasManifest;
+// In production mode (dev: false), Next.js strictly requires .next/BUILD_ID,
+// .next/routes-manifest.json, .next/prerender-manifest.json, and .next/server/app-paths-manifest.json.
+const buildIdFile = join(process.cwd(), '.next', 'BUILD_ID');
+const routesManifest = join(process.cwd(), '.next', 'routes-manifest.json');
+const appPathsManifest = join(process.cwd(), '.next', 'server', 'app-paths-manifest.json');
+const prerenderManifest = join(process.cwd(), '.next', 'prerender-manifest.json');
+
+const hasCompleteBuild = existsSync(buildIdFile) &&
+                         existsSync(routesManifest) && 
+                         existsSync(appPathsManifest) && 
+                         existsSync(prerenderManifest);
+
+// When a production build exists, serve with dev: false. This prevents CPU pegging,
+// on-demand compilation stalls, and 500 Internal Server Errors in containers.
+const dev = process.env.FORCE_DEV === 'true' ? true : !hasCompleteBuild;
 
 const hostname = '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
+
+// Prompt Compiler for Gemini Live System Instructions
+function compileSystemPrompt(owner, menuItems) {
+  const restaurantName = owner.restaurant_name || "Sing Sing Beer & Pizza";
+  const tone = owner.tone || "Lively & Casual";
+  const greeting = owner.greeting || `Thanks for calling ${restaurantName}, this is your virtual host, how can I help you today?`;
+
+  const activeItems = (menuItems || []).filter(i => !i.is_86);
+  const soldOutItems = (menuItems || []).filter(i => i.is_86);
+
+  const activeMenuText = activeItems.length > 0
+    ? activeItems.map(i => {
+        const dietary = i.dietary_tags && i.dietary_tags.length > 0 ? ` (${i.dietary_tags.join(', ')})` : '';
+        const aiPitch = i.ai_description ? ` [Recommendation Guide: ${i.ai_description}]` : '';
+        return `- ${i.item_name} ($${Number(i.price).toFixed(2)}, ${i.station}, ${i.cook_time_minutes} mins) - ${i.description}${dietary}${aiPitch}`;
+      }).join('\n')
+    : `- Pho Bo ($18.25, Noodle Line, 6 mins) - Rare steak, beef brisket, bean sprouts, cilantro, green onion, basil, rice noodles (Dairy-Free)
+- Pho Ga ($17.75, Noodle Line, 6 mins) - Lemongrass chicken, quail eggs, bean sprouts, cilantro, green onion, basil, rice noodles (Dairy-Free)
+- Brisket & Kimchi Pizza ($21.25, Pizza Oven, 4 mins) - Hoisin, mozzarella, green onion, pickled onion, spicy mayo, sesame
+- Margherita Pizza ($18.75, Pizza Oven, 3 mins) - Mozzarella, tomato sauce, pesto, fresh basil (Vegetarian)
+- Katsu Chicken Burger ($22.25, Grill, 10 mins) - Crispy fried, bulldog sauce, cabbage, kewpie, potato roll
+- Wings ($17.75, Fryer, 12 mins) - Red chili sauce, sriracha parm dip
+- Calamari ($18.25, Fryer, 8 mins) - Salsa verde, citrus, smoked paprika (Pescatarian)`;
+
+  const soldOutText = soldOutItems.length > 0
+    ? soldOutItems.map(i => `- 86'd / SOLD OUT: ${i.item_name}`).join('\n')
+    : "None currently 86'd.";
+
+  return `// --- SECTION 1: OWNER'S CUSTOM PERSONA (DYNAMIC) ---
+You are the virtual host for ${restaurantName}.
+Your tone is ${tone}.
+When the call connects, you must greet the caller with exactly this sentence: "${greeting}"
+
+// --- SECTION 2: IMMUTABLE SYSTEM RULES (HARD-CODED) ---
+UNDER NO CIRCUMSTANCES CAN YOU VIOLATE THE FOLLOWING RULES:
+1. THE BOUNDARY RULE:
+You only collect intent and data. You NEVER process payments over the phone. You do not assign physical tables or check real inventory yourself. You rely strictly on system context and emit structured data for the backend.
+
+2. THE AVAILABILITY RULE (THE "GREEN LIGHT" RULE):
+If a caller asks for a reservation, you MUST trigger the 'check_availability' tool first. You cannot say "yes" or confirm any booking until the backend returns {"status": "available"}.
+- Latency masking: Use polite, natural conversational fillers while the check runs ("Hmm, let me check our floor plan for that time real quick...", "Right away, checking our availability now...").
+- If unavailable: The tool will return alternatives (e.g. 7:30 PM or 8:45 PM). Pivot smoothly and offer those times.
+
+3. THE "PACKED HOUSE" RULE:
+Never outright reject a customer if private tables are full. You MUST pivot and offer communal seating, bar seating, or the waitlist. If the current venue is 100% full, you MUST offer a reservation at a sister venue.
+
+4. THE MENU TRUTH & INVENTORY "86" RULE:
+You may only offer items currently listed as "available" in your context window. If an item is marked "sold out" or "86'd", you are strictly forbidden from selling it. You must apologize and immediately suggest a similar available alternative.
+
+CURRENT AVAILABLE MENU MATRIX:
+${activeMenuText}
+
+CURRENT 86'D / SOLD OUT ITEMS:
+${soldOutText}
+
+5. THE KITCHEN PACING RULE:
+For all takeout/delivery food orders, you MUST establish if it is for "ASAP" or scheduled for a specific time. Phase 3 Kitchen Pacing needs this exact timestamp to pace cooking. Trigger the 'submit_food_order' tool with items, timing, name, and phone.
+
+6. THE PAYMENT SECURITY RULE:
+You are strictly forbidden from asking for, recording, or listening to credit card numbers over the phone. For phone orders, you MUST state: "I am sending a secure checkout link to your phone right now."
+
+7. THE FINAL HANDOFF & JSON RULE:
+When the conversation naturally concludes, you MUST trigger the 'submit_reservation_data' or 'submit_food_order' tool to send the finalized payload to the backend. Do not hang up until this is executed.
+
+8. THE LIVELY PERSONA RULE:
+You must use active conversational fillers ("Hmm", "Ah, I see", "Certainly", "Right away") and polite Canadian terminology (washroom, lineup, bill). Never sound robotic or read raw lists out loud.`;
+}
 
 app.prepare().then(() => {
   const server = createServer(async (req, res) => {
@@ -28,8 +101,11 @@ app.prepare().then(() => {
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);
-      res.statusCode = 500;
-      res.end('internal server error');
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.end('internal server error');
+      }
     }
   });
 
@@ -49,6 +125,36 @@ app.prepare().then(() => {
       const parsedUrl = parse(req.url, true);
       const venue = parsedUrl.query.venue || 'Sing Sing (Main St)';
 
+      // Dynamically load owner config and menu matrix
+      let ownerConfig = {
+        voice_name: "Puck",
+        restaurant_name: "Sing Sing Beer & Pizza",
+        greeting: "Thanks for calling Sing Sing Beer & Pizza, this is your virtual host, how can I help you today?",
+        tone: "Lively & Casual"
+      };
+
+      try {
+        const cfgPath = join(process.cwd(), 'owner_config.json');
+        if (existsSync(cfgPath)) {
+          ownerConfig = { ...ownerConfig, ...JSON.parse(readFileSync(cfgPath, 'utf8')) };
+        }
+      } catch (e) {
+        console.warn("Could not read owner_config.json", e);
+      }
+
+      let menuItems = [];
+      try {
+        const menuPath = join(process.cwd(), 'menu_matrix.json');
+        if (existsSync(menuPath)) {
+          menuItems = JSON.parse(readFileSync(menuPath, 'utf8'));
+        }
+      } catch (e) {
+        console.warn("Could not read menu_matrix.json", e);
+      }
+
+      const selectedVoice = parsedUrl.query.voice || ownerConfig.voice_name || 'Puck';
+      const systemInstruction = compileSystemPrompt(ownerConfig, menuItems);
+
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey || apiKey === 'your_gemini_api_key_here' || apiKey === 'MY_GEMINI_API_KEY') {
         console.warn('⚠️ [Voice Concierge] GEMINI_API_KEY is missing or unset in your .env.local file. Voice streaming requires a valid Gemini API key from https://aistudio.google.com/app/apikey');
@@ -62,52 +168,13 @@ app.prepare().then(() => {
 
       const ai = new GoogleGenAI({ apiKey });
       let session = null;
-      
-      const systemInstruction = `You are the dedicated Voice Concierge and Floor Host for Sing Sing Beer & Pizza (located on Main St, Vancouver, part of Freehouse Collective). You are speaking live on the phone with a guest. The system is dedicated exclusively to Sing Sing. You are professional, warm, polished, and human-sounding—never robotic.
-
-CRITICAL OPERATIONAL RULES:
-1. The "Green Light" Rule (Crucial for Reservations):
-You are strictly forbidden from confirming a table reservation immediately. When a caller requests a specific time and party size (e.g., "Table for 4 at 8:00 PM"), you MUST first trigger the check_availability tool for Sing Sing.
-
-While Waiting: Use natural conversational fillers to mask the latency (e.g., "Hmm, let me just pull up the floor plan for 8:00 PM real quick...", "Alright, checking our tables for four now, sir...", or "Let me check our floor grid for 8:00 PM right now...").
-
-If Available: The tool will return {"status": "available"}. You may then confirm: "Awesome, I've got that locked in for you."
-
-If Unavailable: The tool will return {"status": "unavailable", "alternatives": ["19:30", "20:45"]}. You MUST pivot smoothly: "It looks like we are actually fully booked right at 8:00 PM, but I can get you in at 7:30 or 8:45. Would either of those work?"
-
-2. The Final Lock (Reservations):
-Only after the availability is verified and the customer agrees to a valid time slot will you trigger the final submit_reservation_data tool to execute the permanent backend lock and end the call. Make sure you ask for and obtain the guest's name and contact phone number to complete the booking.
-
-3. The Sing Sing Toast Menu Matrix & Food Orders (Phase 3 Kitchen Pacing):
-All food knowledge derives strictly from the official Sing Sing Menu Matrix. Do NOT invent items:
-- Pho Bo ($18.25, Noodle Line, 6 mins) - Rare steak, beef brisket, bean sprouts, cilantro, green onion, basil, rice noodles (Dairy-Free)
-- Pho Ga ($17.75, Noodle Line, 6 mins) - Lemongrass chicken, quail eggs, bean sprouts, cilantro, green onion, basil, rice noodles (Dairy-Free)
-- Brisket & Kimchi Pizza ($21.25, Pizza Oven, 4 mins) - Hoisin, mozzarella, green onion, pickled onion, spicy mayo, sesame
-- Margherita Pizza ($18.75, Pizza Oven, 3 mins) - Mozzarella, tomato sauce, pesto, fresh basil (Vegetarian)
-- Katsu Chicken Burger ($22.25, Grill, 10 mins) - Crispy fried, bulldog sauce, cabbage, kewpie, potato roll
-- Wings ($17.75, Fryer, 12 mins) - Red chili sauce, sriracha parm dip
-- Calamari ($18.25, Fryer, 8 mins) - Salsa verde, citrus, smoked paprika (Pescatarian)
-
-When a customer places a food order for takeout or pickup, trigger the submit_food_order tool with the items, timing (ASAP or scheduled timestamp), customer name, and phone number.
-
-4. The Kitchen Pacing Rule:
-For all takeout/delivery pizza & food orders, you MUST establish if it is for "ASAP" or scheduled for a specific time. Phase 3 Kitchen Pacing engine uses this exact timestamp to pace the cooking.
-
-5. The Inventory "86" Rule:
-If an item is stated as "sold out" or "86'd", you are strictly forbidden from selling it. Apologize politely and immediately suggest a similar alternative.
-
-6. The Payment Security Rule:
-You are strictly forbidden from asking for, recording, or listening to credit card numbers. For phone orders, state: "I am sending a secure checkout link to your phone right now."
-
-7. Persona & Canadian Terminology:
-Use active conversational fillers ("Hmm", "Ah, I see", "Certainly, sir", "Right away") and polite Canadian terminology (washroom, lineup, bill). Never sound robotic or read raw lists out loud.`;
 
       session = await ai.live.connect({
         model: "gemini-3.1-flash-live-preview",
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } },
           },
           systemInstruction: {
             parts: [{ text: systemInstruction }]
@@ -381,6 +448,9 @@ Use active conversational fillers ("Hmm", "Ah, I see", "Certainly, sir", "Right 
   });
 
   server.listen(port, () => {
-    console.log(`> Ready on http://${hostname}:${port}`);
+    console.log(`> Ready on http://${hostname}:${port} (mode: ${dev ? 'development' : 'production'})`);
   });
+}).catch((err) => {
+  console.error('Failed to initialize Next.js server:', err);
+  process.exit(1);
 });

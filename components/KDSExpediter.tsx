@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useKDS } from '@/lib/kdsContext';
+import { useOwnerConfig } from '@/lib/ownerConfigContext';
 import { 
   KitchenStation, 
   KITCHEN_STATIONS, 
@@ -42,12 +43,15 @@ export default function KDSExpediter() {
     createInboundOrder 
   } = useKDS();
 
+  const { ownerConfig, menuItems } = useOwnerConfig();
+  const activeMenu: MenuItem[] = (menuItems && menuItems.length > 0) ? (menuItems as unknown as MenuItem[]) : MENU_MATRIX;
+
   const [activeStation, setActiveStation] = useState<KitchenStation>('Expo');
   const [showSimModal, setShowSimModal] = useState(false);
   const [showCompletedTray, setShowCompletedTray] = useState(false);
   const [selectedMenuItems, setSelectedMenuItems] = useState<MenuItem[]>([
-    MENU_MATRIX[5], // Wings (12 mins)
-    MENU_MATRIX[3]  // Margherita Pizza (3 mins)
+    activeMenu[0] || MENU_MATRIX[0],
+    activeMenu[1] || MENU_MATRIX[1] || MENU_MATRIX[0]
   ]);
   const [simSource, setSimSource] = useState<OrderSource>('DINE_IN');
   const [simGuestName, setSimGuestName] = useState('Alex Henderson');
@@ -70,7 +74,7 @@ export default function KDSExpediter() {
   const handleSimulateRandomOrder = () => {
     // Pick 2-3 random items
     const count = Math.random() > 0.5 ? 3 : 2;
-    const shuffled = [...MENU_MATRIX].sort(() => 0.5 - Math.random());
+    const shuffled = [...activeMenu].sort(() => 0.5 - Math.random());
     const picked = shuffled.slice(0, count);
 
     const sources: OrderSource[] = ['DINE_IN', 'DOORDASH', 'UBEREATS', 'VOICE_CALL'];
@@ -110,13 +114,13 @@ export default function KDSExpediter() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold tracking-wide uppercase text-white">Sing Sing KDS &amp; Pacing Engine</h1>
+                <h1 className="text-base font-bold tracking-wide uppercase text-white">{ownerConfig.restaurant_name.toUpperCase()} KDS &amp; PACING ENGINE</h1>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono border border-zinc-700">
                   Phase 3 Expo
                 </span>
               </div>
               <p className="text-[11px] text-zinc-400 font-mono">
-                Single Source of Truth: <span className="text-zinc-200 font-semibold">menu_matrix.json</span> (Main St)
+                Single Source of Truth: <span className="text-zinc-200 font-semibold">{ownerConfig.venue || 'Main St'}</span>
               </p>
             </div>
           </div>
@@ -349,10 +353,10 @@ export default function KDSExpediter() {
             {/* Menu Matrix Item Picker */}
             <div className="mb-4">
               <label className="text-[10px] font-mono uppercase text-zinc-400 block mb-1.5">
-                Select Items from Sing Sing Menu Matrix ({selectedMenuItems.length} selected)
+                Select Items from {ownerConfig.restaurant_name} Menu Matrix ({selectedMenuItems.length} selected)
               </label>
               <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                {MENU_MATRIX.map(item => {
+                {activeMenu.map(item => {
                   const isSelected = selectedMenuItems.some(i => i.item_id === item.item_id);
                   return (
                     <div

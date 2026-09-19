@@ -4,30 +4,39 @@ import React, { useState } from 'react';
 import FloorCommand from '@/components/FloorCommand';
 import KDSExpediter from '@/components/KDSExpediter';
 import DeliveryDispatch from '@/components/DeliveryDispatch';
+import OwnerControlPanel from '@/components/owner/OwnerControlPanel';
 import { useKDS } from '@/lib/kdsContext';
 import { useDelivery } from '@/lib/deliveryContext';
+import { useOwnerConfig } from '@/lib/ownerConfigContext';
 import { cn } from '@/lib/utils';
 import { LayoutGrid, Flame, AlertTriangle, Truck } from 'lucide-react';
 
 function NavigationBar({ 
   currentTab, 
-  setCurrentTab 
+  setCurrentTab,
+  onSwitchToOwner
 }: { 
   currentTab: 'floor' | 'kds' | 'delivery'; 
   setCurrentTab: (tab: 'floor' | 'kds' | 'delivery') => void;
+  onSwitchToOwner: () => void;
 }) {
   const { totalActiveOrders, isThrottled } = useKDS();
   const { activeDeliveryCount, killSwitchEngaged } = useDelivery();
+  const { ownerConfig } = useOwnerConfig();
 
   return (
     <div className="h-11 bg-[#060709] border-b border-[#1C1E26] px-4 sm:px-5 flex items-center justify-between z-30 shrink-0 select-none">
       {/* Brand & Context */}
       <div className="flex items-center gap-3">
-        <span className="text-xs font-black tracking-widest font-mono text-zinc-300 uppercase">
-          SING SING RESTAURANT OS
-        </span>
-        <span className="text-[10px] text-zinc-500 font-mono hidden lg:inline">
-          Main St • Menu Matrix SSoT
+        <button
+          type="button"
+          onClick={onSwitchToOwner}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#131418] hover:bg-[#1C1E26] border border-[#D4AF37]/40 text-[#D4AF37] text-xs font-mono font-bold transition-all shadow-[0_0_10px_rgba(212,175,55,0.15)]"
+        >
+          <span>← Owner Control Panel</span>
+        </button>
+        <span className="text-xs font-black tracking-widest font-mono text-zinc-300 uppercase hidden md:inline">
+          {ownerConfig.restaurant_name.toUpperCase()} OS
         </span>
       </div>
 
@@ -119,23 +128,35 @@ function NavigationBar({
 }
 
 function MainContent() {
-  const [currentTab, setCurrentTab] = useState<'floor' | 'kds' | 'delivery'>('delivery');
+  const [appMode, setAppMode] = useState<'owner' | 'operations'>('owner');
+  const [currentTab, setCurrentTab] = useState<'floor' | 'kds' | 'delivery'>('floor');
+  const { ownerConfig, floorTables } = useOwnerConfig();
+
+  if (appMode === 'owner') {
+    return <OwnerControlPanel onSwitchToOperations={() => setAppMode('operations')} />;
+  }
+
+  const syncKey = `${ownerConfig.restaurant_name}-${ownerConfig.last_deployed_at || floorTables.length}`;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#000000]">
-      <NavigationBar currentTab={currentTab} setCurrentTab={setCurrentTab} />
+      <NavigationBar 
+        currentTab={currentTab} 
+        setCurrentTab={setCurrentTab} 
+        onSwitchToOwner={() => setAppMode('owner')}
+      />
       <div className="flex-1 overflow-hidden relative">
         {currentTab === 'floor' ? (
           <div className="h-full w-full overflow-hidden">
-            <FloorCommand />
+            <FloorCommand key={`floor-${syncKey}`} />
           </div>
         ) : currentTab === 'kds' ? (
           <div className="h-full w-full overflow-hidden">
-            <KDSExpediter />
+            <KDSExpediter key={`kds-${syncKey}`} />
           </div>
         ) : (
           <div className="h-full w-full overflow-hidden">
-            <DeliveryDispatch />
+            <DeliveryDispatch key={`dispatch-${syncKey}`} />
           </div>
         )}
       </div>

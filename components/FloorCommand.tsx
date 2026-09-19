@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useKDS } from '@/lib/kdsContext';
 import { MENU_MATRIX } from '@/lib/menuMatrix';
+import { useOwnerConfig } from '@/lib/ownerConfigContext';
 
 type DiningStage = 'AVAILABLE' | 'LOCKED' | 'SEATED' | 'APPS_FIRED' | 'MAINS_CLEARED' | 'CHECK_DROPPED' | 'BUSSING_NEEDED';
 
@@ -89,7 +90,30 @@ const formatTime = (secs: number) => {
 
 export default function FloorCommand() {
   const { createInboundOrder } = useKDS();
-  const [tables, setTables] = useState<Table[]>(INITIAL_TABLES);
+  const { ownerConfig, floorTables, menuItems, selectedVoice } = useOwnerConfig();
+
+  // Initialize tables with floorTables from owner config if available
+  const [tables, setTables] = useState<Table[]>(() => {
+    if (floorTables && floorTables.length > 0) {
+      return floorTables.map(ft => ({
+        id: ft.id,
+        label: ft.label,
+        capacity: ft.capacity,
+        stage: ft.stage || 'AVAILABLE',
+        occupantName: undefined,
+        timeElapsed: 0,
+        mergedWith: [],
+        adjacentTo: ft.adjacentTo || [],
+        type: ft.type,
+        x: ft.x,
+        y: ft.y,
+        w: ft.w,
+        h: ft.h,
+      }));
+    }
+    return INITIAL_TABLES;
+  });
+
   const [incoming, setIncoming] = useState<IncomingRequest[]>([]);
   const [waitlist, setWaitlist] = useState<IncomingRequest[]>([]);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -105,8 +129,16 @@ export default function FloorCommand() {
   const [isMuted, setIsMuted] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
   const [recentChecks, setRecentChecks] = useState<AvailabilityCheck[]>([]);
-  const selectedVenue = 'Sing Sing (Main St)';
-  const [lastLiveMessage, setLastLiveMessage] = useState<string>('Voice Concierge ready for Sing Sing. The Green Light rule ensures backend availability checks before confirmation.');
+  const selectedVenue = ownerConfig.venue || ownerConfig.restaurant_name || 'Main Dining Room';
+  
+  const [liveCallMessage, setLiveCallMessage] = useState<string | null>(null);
+  const lastLiveMessage = (callState === 'Disconnected' && !liveCallMessage)
+    ? `Voice Concierge ready for ${ownerConfig.restaurant_name}. The Green Light rule ensures backend availability checks before confirmation.`
+    : (liveCallMessage || `Voice Concierge ready for ${ownerConfig.restaurant_name}. The Green Light rule ensures backend availability checks before confirmation.`);
+
+  const setLastLiveMessage = (msg: string) => {
+    setLiveCallMessage(msg);
+  };
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -237,7 +269,7 @@ export default function FloorCommand() {
     if (callState !== 'Disconnected') return;
     setMicError(null);
     setCallState('Connecting');
-    setLastLiveMessage('Connecting to Freehouse Voice Concierge (Gemini 3.1 Live)...');
+    setLastLiveMessage(`Connecting to ${ownerConfig.restaurant_name} Voice Concierge (Gemini 3.1 Live)...`);
     nextPlayTimeRef.current = 0;
     activeSourcesRef.current = [];
     
@@ -255,7 +287,7 @@ export default function FloorCommand() {
       mediaStreamRef.current = stream;
 
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${wsProtocol}//${window.location.host}/api/live?venue=${encodeURIComponent(selectedVenue)}`;
+      const wsUrl = `${wsProtocol}//${window.location.host}/api/live?venue=${encodeURIComponent(selectedVenue)}&voice=${encodeURIComponent(ownerConfig.voice_name || selectedVoice.name)}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -352,13 +384,14 @@ export default function FloorCommand() {
             const timing = args.timing || 'ASAP';
             const itemsList = args.items || [];
 
-            // Match ordered item names to Menu Matrix
+            // Match ordered item names to Menu Matrix or Owner Config
+            const availableMenu = (menuItems && menuItems.length > 0) ? menuItems : MENU_MATRIX;
             const matchedItems = itemsList.map((reqItem: any) => {
               const reqName = String(reqItem.item_name || '').toLowerCase();
-              const found = MENU_MATRIX.find(m => 
+              const found = availableMenu.find(m => 
                 m.item_name.toLowerCase().includes(reqName) || reqName.includes(m.item_name.toLowerCase())
               );
-              return found || MENU_MATRIX[0];
+              return found || availableMenu[0];
             });
 
             if (matchedItems.length > 0) {
@@ -675,17 +708,19 @@ export default function FloorCommand() {
           
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-[#131418] border border-[#22242A] flex items-center justify-center shadow-inner">
-              <span className="text-emerald-400 font-serif font-bold text-sm tracking-wider">FC</span>
+              <span className="text-emerald-400 font-serif font-bold text-sm tracking-wider">
+                {ownerConfig.restaurant_name ? ownerConfig.restaurant_name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : 'FC'}
+              </span>
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-sm font-semibold tracking-wide">Sing Sing Beer &amp; Pizza</h1>
+                <h1 className="text-sm font-semibold tracking-wide">{ownerConfig.restaurant_name}</h1>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono">
                   Floor Command &amp; Voice Concierge
                 </span>
               </div>
               <p className="text-[11px] text-zinc-400 font-mono">
-                Location: <span className="text-zinc-200">Main St, Vancouver • Freehouse Collective</span>
+                Location: <span className="text-zinc-200">{ownerConfig.venue || 'Main St'} • {ownerConfig.tone || 'Lively & Casual'}</span>
               </p>
             </div>
           </div>
@@ -781,10 +816,10 @@ export default function FloorCommand() {
                 <div className="flex items-center justify-between px-3 py-2 bg-[#0A0A0C] border border-[#22242A] rounded-lg">
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-mono text-zinc-500">Active Location</span>
-                    <span className="text-xs font-semibold text-zinc-200">Sing Sing Beer &amp; Pizza</span>
+                    <span className="text-xs font-semibold text-zinc-200">{ownerConfig.restaurant_name}</span>
                   </div>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                    Main St • 2,400 sq ft
+                    {ownerConfig.venue || 'Main St'} • {selectedVoice.name} Voice
                   </span>
                 </div>
 

@@ -3,17 +3,17 @@ import './globals.css'; // Global styles
 import Providers from '@/components/Providers';
 
 export const metadata: Metadata = {
-  title: 'Sing Sing Restaurant OS - Phase 4 Delivery Gateway & Dispatch',
-  description: 'Phase 4 Delivery Aggregation Gateway & Dispatch Dashboard with Kitchen Pacing Engine and AI Voice Concierge for Sing Sing Beer & Pizza.',
+  title: 'Sing Sing Restaurant OS - Owner\'s Control Panel',
+  description: 'Owner\'s Control Panel for Sing Sing Beer & Pizza with dynamic AI Voice & Behavior Engine, Interactive Floor Plan Builder, Menu Matrix CRUD, and Live Operations.',
   openGraph: {
-    title: 'Sing Sing Restaurant OS - Phase 4 Delivery Gateway & Dispatch',
-    description: 'Phase 4 Delivery Aggregation Gateway & Dispatch Dashboard with Kitchen Pacing Engine and AI Voice Concierge for Sing Sing Beer & Pizza.',
+    title: 'Sing Sing Restaurant OS - Owner\'s Control Panel',
+    description: 'Owner\'s Control Panel for Sing Sing Beer & Pizza with dynamic AI Voice & Behavior Engine, Interactive Floor Plan Builder, Menu Matrix CRUD, and Live Operations.',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Sing Sing Restaurant OS - Phase 4 Delivery Gateway & Dispatch',
-    description: 'Phase 4 Delivery Aggregation Gateway & Dispatch Dashboard with Kitchen Pacing Engine and AI Voice Concierge for Sing Sing Beer & Pizza.',
+    title: 'Sing Sing Restaurant OS - Owner\'s Control Panel',
+    description: 'Owner\'s Control Panel for Sing Sing Beer & Pizza with dynamic AI Voice & Behavior Engine, Interactive Floor Plan Builder, Menu Matrix CRUD, and Live Operations.',
   },
 };
 

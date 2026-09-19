@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useKDS } from '@/lib/kdsContext';
+import { useOwnerConfig } from '@/lib/ownerConfigContext';
 
 // Brand styling helper
 function getPlatformStyle(platform: DeliveryPlatform) {
@@ -415,6 +416,7 @@ function AuditLogModal({
 // MAIN EXPORT: Delivery Dispatch Dashboard (Takeout Packing Station)
 export default function DeliveryDispatch() {
   const { totalActiveOrders, isThrottled } = useKDS();
+  const { ownerConfig } = useOwnerConfig();
   const {
     deliveryOrders,
     completedDeliveries,
@@ -469,7 +471,7 @@ export default function DeliveryDispatch() {
               </span>
             </div>
             <p className="text-xs text-zinc-400 font-mono mt-0.5">
-              Sing Sing Main St • Aggregated Delivery Dispatch &amp; Courier Tracking
+              {ownerConfig.restaurant_name} • {ownerConfig.venue || 'Main St'} • Aggregated Delivery Dispatch &amp; Courier Tracking
             </p>
           </div>
 

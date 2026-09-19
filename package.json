@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_ENV=development node server.mjs",
-    "build": "next build",
+    "dev": "node server.mjs",
+    "build": "NODE_ENV=production next build && node scripts/prepare-dist.mjs",
     "start": "node server.mjs",
     "lint": "eslint .",
     "clean": "next clean"
