@@ -1,6 +1,6 @@
 {
-  "name": "Sing Sing Restaurant OS",
-  "description": "Owner's Control Panel for Sing Sing Beer & Pizza with dynamic AI Voice & Behavior Engine, Interactive Floor Plan Builder, Menu Matrix CRUD, and Live Operations.",
+  "name": "leed pizza OS",
+  "description": "Floor Command & Autonomous Voice Concierge, Kitchen Pacing, and Seating Management for leed pizza.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

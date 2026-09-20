@@ -1,6 +1,6 @@
 import { createServer } from 'http';
 import { parse } from 'url';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, createReadStream } from 'fs';
 import { join } from 'path';
 import next from 'next';
 import { WebSocketServer } from 'ws';
@@ -29,33 +29,46 @@ const handle = app.getRequestHandler();
 
 // Prompt Compiler for Gemini Live System Instructions
 function compileSystemPrompt(owner, menuItems) {
-  const restaurantName = owner.restaurant_name || "Sing Sing Beer & Pizza";
+  const restaurantName = owner.restaurant_name || "leed pizza";
+  const venue = owner.venue || `${restaurantName} Main St`;
   const tone = owner.tone || "Lively & Casual";
   const greeting = owner.greeting || `Thanks for calling ${restaurantName}, this is your virtual host, how can I help you today?`;
+  const canadianDialect = owner.canadian_dialect !== false;
 
   const activeItems = (menuItems || []).filter(i => !i.is_86);
   const soldOutItems = (menuItems || []).filter(i => i.is_86);
 
   const activeMenuText = activeItems.length > 0
     ? activeItems.map(i => {
-        const dietary = i.dietary_tags && i.dietary_tags.length > 0 ? ` (${i.dietary_tags.join(', ')})` : '';
+        const dietary = i.dietary_tags && i.dietary_tags.length > 0 ? ` (${Array.isArray(i.dietary_tags) ? i.dietary_tags.join(', ') : i.dietary_tags})` : '';
         const aiPitch = i.ai_description ? ` [Recommendation Guide: ${i.ai_description}]` : '';
         return `- ${i.item_name} ($${Number(i.price).toFixed(2)}, ${i.station}, ${i.cook_time_minutes} mins) - ${i.description}${dietary}${aiPitch}`;
       }).join('\n')
-    : `- Pho Bo ($18.25, Noodle Line, 6 mins) - Rare steak, beef brisket, bean sprouts, cilantro, green onion, basil, rice noodles (Dairy-Free)
-- Pho Ga ($17.75, Noodle Line, 6 mins) - Lemongrass chicken, quail eggs, bean sprouts, cilantro, green onion, basil, rice noodles (Dairy-Free)
-- Brisket & Kimchi Pizza ($21.25, Pizza Oven, 4 mins) - Hoisin, mozzarella, green onion, pickled onion, spicy mayo, sesame
-- Margherita Pizza ($18.75, Pizza Oven, 3 mins) - Mozzarella, tomato sauce, pesto, fresh basil (Vegetarian)
-- Katsu Chicken Burger ($22.25, Grill, 10 mins) - Crispy fried, bulldog sauce, cabbage, kewpie, potato roll
-- Wings ($17.75, Fryer, 12 mins) - Red chili sauce, sriracha parm dip
-- Calamari ($18.25, Fryer, 8 mins) - Salsa verde, citrus, smoked paprika (Pescatarian)`;
+    : `- Classic Pepperoni Pizza ($20.50, Pizza Oven, 4 mins) - Crispy cups, mozzarella, hot honey drizzle, fresh basil on sourdough crust (Popular)
+- Margherita Pizza ($18.75, Pizza Oven, 3 mins) - San Marzano DOP tomato sauce, fresh fior di latte mozzarella, sweet basil (Vegetarian)
+- Truffle Wild Mushroom Pizza ($22.00, Pizza Oven, 4 mins) - Roasted cremini & oyster mushrooms, fontina, white truffle oil (Vegetarian)
+- Hot Honey Garlic Wings ($16.50, Fryer, 10 mins) - Crispy double-dredged chicken wings tossed in garlic hot honey reduction
+- Tuscan Caesar Salad ($14.00, Salad Pantry, 2 mins) - Crisp romaine hearts, shaved 24-month pecorino romano, sourdough crisps (Vegetarian)
+- House Hazy IPA Pint ($8.50, Bar, 1 min) - Fresh local draft IPA with tropical citrus notes (Alcohol)`;
 
   const soldOutText = soldOutItems.length > 0
     ? soldOutItems.map(i => `- 86'd / SOLD OUT: ${i.item_name}`).join('\n')
     : "None currently 86'd.";
 
+  const customRulesText = (owner.custom_rules && owner.custom_rules.length > 0)
+    ? owner.custom_rules.map((rule, idx) => `RULE ${idx + 1}: ${rule}`).join('\n')
+    : `RULE 1: Always highlight the chef's artisan sourdough crust and hot honey finish.
+RULE 2: Offer pairing recommendations (like our fresh local draft IPA) when guests order pizzas.
+RULE 3: Keep voice answers brisk, punchy, and low-latency.`;
+
+  const masterInstructions = owner.master_instructions && owner.master_instructions.trim()
+    ? `// --- MASTER SYSTEM PROMPT OVERRIDES & CUSTOM INSTRUCTIONS ---
+${owner.master_instructions}
+`
+    : '';
+
   return `// --- SECTION 1: OWNER'S CUSTOM PERSONA (DYNAMIC) ---
-You are the virtual host for ${restaurantName}.
+You are the virtual host for ${restaurantName} (${venue}).
 Your tone is ${tone}.
 When the call connects, you must greet the caller with exactly this sentence: "${greeting}"
 
@@ -65,7 +78,7 @@ UNDER NO CIRCUMSTANCES CAN YOU VIOLATE THE FOLLOWING RULES:
 You only collect intent and data. You NEVER process payments over the phone. You do not assign physical tables or check real inventory yourself. You rely strictly on system context and emit structured data for the backend.
 
 2. THE AVAILABILITY RULE (THE "GREEN LIGHT" RULE):
-If a caller asks for a reservation, you MUST trigger the 'check_availability' tool first. You cannot say "yes" or confirm any booking until the backend returns {"status": "available"}.
+If a caller asks for a reservation, you MUST trigger the 'check_availability' tool first with venue: "${venue}". You cannot say "yes" or confirm any booking until the backend returns {"status": "available"}.
 - Latency masking: Use polite, natural conversational fillers while the check runs ("Hmm, let me check our floor plan for that time real quick...", "Right away, checking our availability now...").
 - If unavailable: The tool will return alternatives (e.g. 7:30 PM or 8:45 PM). Pivot smoothly and offer those times.
 
@@ -91,13 +104,38 @@ You are strictly forbidden from asking for, recording, or listening to credit ca
 When the conversation naturally concludes, you MUST trigger the 'submit_reservation_data' or 'submit_food_order' tool to send the finalized payload to the backend. Do not hang up until this is executed.
 
 8. THE LIVELY PERSONA RULE:
-You must use active conversational fillers ("Hmm", "Ah, I see", "Certainly", "Right away") and polite Canadian terminology (washroom, lineup, bill). Never sound robotic or read raw lists out loud.`;
+${canadianDialect ? 'You must use active conversational fillers ("Hmm", "Ah, I see", "Certainly", "Right away") and polite Canadian terminology (washroom, lineup, bill). Never sound robotic or read raw lists out loud.' : 'Speak with professional, warm, concise cadence.'}
+
+// --- SECTION 3: OWNER MASTER DIRECTIVES & SPECIFIC POLICIES ---
+${customRulesText}
+
+${masterInstructions}`.trim();
 }
 
 app.prepare().then(() => {
   const server = createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true);
+
+      // Fast-path & fallback for static chunks to guarantee 100% availability
+      if (parsedUrl.pathname && parsedUrl.pathname.startsWith('/_next/static/')) {
+        const relativePath = parsedUrl.pathname.replace(/^\/_next\/static\//, '');
+        const nextStaticFile = join(process.cwd(), '.next', 'static', relativePath);
+        const distStaticFile = join(process.cwd(), 'dist', '_next', 'static', relativePath);
+        const filePath = existsSync(nextStaticFile) ? nextStaticFile : existsSync(distStaticFile) ? distStaticFile : null;
+
+        if (filePath) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          if (filePath.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+          } else if (filePath.endsWith('.css')) {
+            res.setHeader('Content-Type', 'text/css; charset=UTF-8');
+          }
+          createReadStream(filePath).pipe(res);
+          return;
+        }
+      }
+
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);
@@ -121,26 +159,75 @@ app.prepare().then(() => {
   });
 
   wss.on('connection', async (clientWs, req) => {
+    const callStartTime = new Date();
+    const callId = 'CALL-' + Date.now();
+    const transcriptLog = [];
+    const toolCallsLog = [];
+    let recordedAudioChunks = [];
+    let reservationSummary = null;
+    let orderSummary = null;
+    let callerName = 'Guest Caller';
+    let callerPhone = 'Caller ID Private';
+
+    // Heartbeat Keep-Alive to prevent any intermediate proxy or browser disconnects
+    const pingInterval = setInterval(() => {
+      if (clientWs.readyState === 1) {
+        clientWs.ping();
+      }
+    }, 15000);
+
+    clientWs.on('pong', () => {
+      // client alive
+    });
+
     try {
       const parsedUrl = parse(req.url, true);
-      const venue = parsedUrl.query.venue || 'Sing Sing (Main St)';
 
-      // Dynamically load owner config and menu matrix
+      // Dynamically load owner config and menu matrix from SQLite and disk
       let ownerConfig = {
-        voice_name: "Puck",
-        restaurant_name: "Sing Sing Beer & Pizza",
-        greeting: "Thanks for calling Sing Sing Beer & Pizza, this is your virtual host, how can I help you today?",
-        tone: "Lively & Casual"
+        voice_name: "Leda",
+        restaurant_name: "leed pizza",
+        greeting: "Thanks for calling leed pizza, this is your virtual host, how can I help you today?",
+        tone: "Lively & Casual",
+        venue: "leed pizza Main St",
+        canadian_dialect: true
       };
+
+      try {
+        const { DatabaseSync } = await import('node:sqlite');
+        const dbPath = join(process.cwd(), 'data', 'leed_pizza.db');
+        if (existsSync(dbPath)) {
+          const sqliteDb = new DatabaseSync(dbPath);
+          const masterRow = sqliteDb.prepare("SELECT * FROM master_prompt_config WHERE id = 'active'").get();
+          if (masterRow) {
+            ownerConfig = {
+              ...ownerConfig,
+              ...masterRow,
+              canadian_dialect: Boolean(masterRow.canadian_dialect),
+              custom_rules: JSON.parse(masterRow.custom_rules || '[]')
+            };
+          }
+        }
+      } catch (e) {
+        // Fallback to owner_config.json
+      }
 
       try {
         const cfgPath = join(process.cwd(), 'owner_config.json');
         if (existsSync(cfgPath)) {
-          ownerConfig = { ...ownerConfig, ...JSON.parse(readFileSync(cfgPath, 'utf8')) };
+          const fileConfig = JSON.parse(readFileSync(cfgPath, 'utf8'));
+          ownerConfig = {
+            ...ownerConfig,
+            ...fileConfig,
+            restaurant_name: fileConfig.restaurant_name || ownerConfig.restaurant_name,
+            venue: fileConfig.venue || `${fileConfig.restaurant_name || 'leed pizza'} Main St`
+          };
         }
       } catch (e) {
         console.warn("Could not read owner_config.json", e);
       }
+
+      const venue = parsedUrl.query.venue || (ownerConfig.venue || `${ownerConfig.restaurant_name} Main St`);
 
       let menuItems = [];
       try {
@@ -152,17 +239,18 @@ app.prepare().then(() => {
         console.warn("Could not read menu_matrix.json", e);
       }
 
-      const selectedVoice = parsedUrl.query.voice || ownerConfig.voice_name || 'Puck';
-      const systemInstruction = compileSystemPrompt(ownerConfig, menuItems);
+      const selectedVoice = parsedUrl.query.voice || ownerConfig.voice_name || 'Leda';
+      const systemInstruction = compileSystemPrompt({ ...ownerConfig, venue }, menuItems);
 
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey || apiKey === 'your_gemini_api_key_here' || apiKey === 'MY_GEMINI_API_KEY') {
-        console.warn('⚠️ [Voice Concierge] GEMINI_API_KEY is missing or unset in your .env.local file. Voice streaming requires a valid Gemini API key from https://aistudio.google.com/app/apikey');
+        console.warn('⚠️ [Voice Concierge] GEMINI_API_KEY is missing or unset in your .env.local file.');
         if (clientWs.readyState === 1) {
           clientWs.send(JSON.stringify({ 
             error: "GEMINI_API_KEY is not configured. Please set GEMINI_API_KEY in your .env.local file to enable the live voice concierge." 
           }));
         }
+        clearInterval(pingInterval);
         return;
       }
 
@@ -183,7 +271,7 @@ app.prepare().then(() => {
             functionDeclarations: [
               {
                 name: "check_availability",
-                description: "Checks the backend 15-minute grid and Turn Time math for table overlaps.",
+                description: `Checks the backend 15-minute grid and Turn Time math for table overlaps at ${venue}.`,
                 parameters: {
                   type: "object",
                   properties: {
@@ -197,7 +285,7 @@ app.prepare().then(() => {
                     },
                     venue: { 
                       type: "string", 
-                      description: "The venue name, strictly: Sing Sing" 
+                      description: `The venue name: ${venue}` 
                     }
                   },
                   required: ["party_size", "target_time", "venue"]
@@ -205,7 +293,7 @@ app.prepare().then(() => {
               },
               {
                 name: "submit_reservation_data",
-                description: "Emits the finalized, backend-approved contract to lock the table in PostgreSQL and trigger the SMS confirmation.",
+                description: `Emits the finalized, backend-approved reservation contract to lock the table in SQLite database and trigger SMS confirmation for ${venue}.`,
                 parameters: {
                   type: "object",
                   properties: {
@@ -227,7 +315,7 @@ app.prepare().then(() => {
                     },
                     venue: { 
                       type: "string", 
-                      description: "The venue name: Sing Sing" 
+                      description: `The venue name: ${venue}` 
                     }
                   },
                   required: ["party_size", "confirmed_time", "customer_name", "customer_phone", "venue"]
@@ -235,7 +323,7 @@ app.prepare().then(() => {
               },
               {
                 name: "submit_food_order",
-                description: "Submits a takeout or pickup food order directly to the Sing Sing Phase 3 Kitchen Pacing Engine and KDS.",
+                description: `Submits a takeout or pickup food order directly to the ${ownerConfig.restaurant_name} Kitchen Pacing Engine and KDS.`,
                 parameters: {
                   type: "object",
                   properties: {
@@ -253,7 +341,7 @@ app.prepare().then(() => {
                     },
                     items: {
                       type: "array",
-                      description: "List of items ordered from the Sing Sing Menu Matrix",
+                      description: `List of items ordered from the ${ownerConfig.restaurant_name} Menu Matrix`,
                       items: {
                         type: "object",
                         properties: {
@@ -273,10 +361,14 @@ app.prepare().then(() => {
         callbacks: {
           onmessage: (message) => {
             const audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-            if (audio && clientWs.readyState === 1) clientWs.send(JSON.stringify({ audio }));
+            if (audio) {
+              if (clientWs.readyState === 1) clientWs.send(JSON.stringify({ audio }));
+              recordedAudioChunks.push(audio);
+            }
             
-            if (message.serverContent?.interrupted && clientWs.readyState === 1)
+            if (message.serverContent?.interrupted && clientWs.readyState === 1) {
               clientWs.send(JSON.stringify({ interrupted: true }));
+            }
 
             const functionCalls = message.toolCall?.functionCalls;
             if (functionCalls && functionCalls.length > 0) {
@@ -288,8 +380,6 @@ app.prepare().then(() => {
 
                   console.log(`[Tool Call: check_availability] venue=${reqVenue}, size=${partySize}, time=${targetTime}`);
 
-                  // 15-Minute Grid Math: 20:00 (8:00 PM) is fully booked and returns alternatives [19:30, 20:45]
-                  // Other times (e.g. 19:30, 20:45, 18:00, 19:00, etc.) are available!
                   let responsePayload;
                   if (targetTime === '20:00' || targetTime.includes('20:00') || targetTime === '8:00 PM' || targetTime === '8:00' || targetTime === '08:00 PM') {
                     responsePayload = {
@@ -302,7 +392,13 @@ app.prepare().then(() => {
                     };
                   }
 
-                  // Inform client UI of availability check
+                  toolCallsLog.push({
+                    name: call.name,
+                    args: call.args,
+                    result: responsePayload,
+                    timestamp: new Date().toISOString()
+                  });
+
                   if (clientWs.readyState === 1) {
                     clientWs.send(JSON.stringify({
                       toolEvent: 'check_availability',
@@ -321,6 +417,17 @@ app.prepare().then(() => {
                   });
                 } else if (call.name === "submit_reservation_data") {
                   console.log(`[Tool Call: submit_reservation_data] args=`, call.args);
+                  callerName = call.args?.customer_name || callerName;
+                  callerPhone = call.args?.customer_phone || callerPhone;
+                  const confId = "RES-" + Math.floor(100000 + Math.random() * 900000);
+                  reservationSummary = `Locked table for ${call.args?.party_size || 2} guests at ${call.args?.confirmed_time || '7:00 PM'} for ${callerName}. Conf: ${confId}`;
+
+                  toolCallsLog.push({
+                    name: call.name,
+                    args: call.args,
+                    result: { status: "locked", confirmation_id: confId },
+                    timestamp: new Date().toISOString()
+                  });
                   
                   if (clientWs.readyState === 1) {
                     clientWs.send(JSON.stringify({ 
@@ -337,13 +444,25 @@ app.prepare().then(() => {
                       name: call.name,
                       response: { 
                         status: "locked",
-                        confirmation_id: "RES-" + Math.floor(100000 + Math.random() * 900000),
+                        confirmation_id: confId,
                         sms_status: "queued" 
                       }
                     }]
                   });
                 } else if (call.name === "submit_food_order") {
                   console.log(`[Tool Call: submit_food_order] args=`, call.args);
+                  callerName = call.args?.customer_name || callerName;
+                  callerPhone = call.args?.customer_phone || callerPhone;
+                  const ticketId = "TKT-" + Math.floor(100 + Math.random() * 900);
+                  const itemCount = Array.isArray(call.args?.items) ? call.args.items.length : 1;
+                  orderSummary = `Takeout ${call.args?.timing || 'ASAP'} (${itemCount} items) for ${callerName}. Paced in Kitchen. Ticket: ${ticketId}`;
+
+                  toolCallsLog.push({
+                    name: call.name,
+                    args: call.args,
+                    result: { status: "paced_and_queued", order_id: ticketId },
+                    timestamp: new Date().toISOString()
+                  });
                   
                   if (clientWs.readyState === 1) {
                     clientWs.send(JSON.stringify({ 
@@ -360,7 +479,7 @@ app.prepare().then(() => {
                       name: call.name,
                       response: { 
                         status: "paced_and_queued",
-                        order_id: "TKT-" + Math.floor(100 + Math.random() * 900),
+                        order_id: ticketId,
                         kitchen_status: "hold_queue_active",
                         sms_payment_link: "sent"
                       }
@@ -385,7 +504,7 @@ app.prepare().then(() => {
         turns: [
           {
             role: 'user',
-            parts: [{ text: `[System Context: The caller is calling the ${venue} venue. Greet them accordingly.]` }]
+            parts: [{ text: `[System Context: The caller is calling ${ownerConfig.restaurant_name} (${venue}). Greet them enthusiastically with: "${ownerConfig.greeting}"]` }]
           }
         ],
         turnComplete: true
@@ -399,17 +518,24 @@ app.prepare().then(() => {
               audio: { data: parsed.audio, mimeType: "audio/pcm;rate=16000" },
             });
           }
+          if (parsed.userSpeech) {
+            transcriptLog.push({
+              role: 'user',
+              text: parsed.userSpeech,
+              timestamp: new Date().toLocaleTimeString()
+            });
+          }
           if (parsed.end) {
             if (session) {
-                session.sendClientContent({
-                    turns: [
-                        {
-                            role: 'user',
-                            parts: [{ text: 'Goodbye' }]
-                        }
-                    ],
-                    turnComplete: true
-                });
+              session.sendClientContent({
+                turns: [
+                  {
+                    role: 'user',
+                    parts: [{ text: 'Goodbye' }]
+                  }
+                ],
+                turnComplete: true
+              });
             }
           }
         } catch (err) {
@@ -417,18 +543,63 @@ app.prepare().then(() => {
         }
       });
       
-      clientWs.on('close', () => {
-        // We can't close the session explicitly with close() unless the API exposes it,
-        // but we can just let it gc, or if session.close exists, call it.
-        // Usually session.close is not exposed or not necessary, we just drop the ref.
-      });
+      const finalizeCallSession = async () => {
+        clearInterval(pingInterval);
+        const callEndTime = new Date();
+        const durationSecs = Math.max(1, Math.round((callEndTime.getTime() - callStartTime.getTime()) / 1000));
+
+        // Save call into SQLite database
+        try {
+          const { DatabaseSync } = await import('node:sqlite');
+          const dbPath = join(process.cwd(), 'data', 'leed_pizza.db');
+          if (existsSync(dbPath)) {
+            const sqliteDb = new DatabaseSync(dbPath);
+            const insertStmt = sqliteDb.prepare(`
+              INSERT INTO voice_recordings (
+                id, caller_name, caller_phone, venue, start_time, end_time, duration_seconds, status, intent, transcript, audio_data, tool_calls, reservation_summary, order_summary, created_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `);
+
+            // Sample simulated transcript if live speech recognition was local
+            const finalTranscript = transcriptLog.length > 0 ? transcriptLog : [
+              { role: 'agent', text: ownerConfig.greeting, timestamp: callStartTime.toLocaleTimeString() },
+              { role: 'user', text: "Inbound voice audio session", timestamp: callEndTime.toLocaleTimeString() }
+            ];
+
+            insertStmt.run(
+              callId,
+              callerName,
+              callerPhone,
+              venue,
+              callStartTime.toISOString(),
+              callEndTime.toISOString(),
+              durationSecs,
+              'completed',
+              reservationSummary ? 'reservation' : orderSummary ? 'takeout' : 'inquiry',
+              JSON.stringify(finalTranscript),
+              recordedAudioChunks.length > 0 ? recordedAudioChunks.slice(0, 50).join('') : null,
+              JSON.stringify(toolCallsLog),
+              reservationSummary,
+              orderSummary,
+              new Date().toISOString()
+            );
+            console.log(`[SQLite Database] Call ${callId} recorded (${durationSecs}s) for ${callerName}`);
+          }
+        } catch (dbErr) {
+          console.warn("Could not record call in SQLite:", dbErr);
+        }
+      };
+
+      clientWs.on('close', finalizeCallSession);
 
       clientWs.on('error', (err) => {
         console.error("Client WebSocket error:", err);
+        clearInterval(pingInterval);
       });
 
     } catch (err) {
       console.error("Error connecting to Gemini", err);
+      clearInterval(pingInterval);
       try {
         clientWs.send(JSON.stringify({ error: "Failed to connect to AI" }));
         clientWs.close();

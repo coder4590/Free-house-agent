@@ -1,15 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Phone, PhoneOff, Activity, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useOwnerConfig } from '@/lib/ownerConfigContext';
 
 export default function LiveAudioClient() {
+  const { ownerConfig, selectedVoice } = useOwnerConfig();
   const [callState, setCallState] = useState<'Disconnected' | 'Connecting' | 'Live' | 'Processing'>('Disconnected');
   const [isMuted, setIsMuted] = useState(false);
   const [extractedData, setExtractedData] = useState<any>(null);
-  const [latency, setLatency] = useState<string>('< 120ms');
-  const [venue, setVenue] = useState('Lamplighter (Gastown)');
+  const [latency, setLatency] = useState<string>('~85ms (Ultra Low Latency)');
+  const venue = ownerConfig.venue || `${ownerConfig.restaurant_name} Main St`;
   const [micError, setMicError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -43,6 +45,9 @@ export default function LiveAudioClient() {
   // Helper to play audio chunk (Base64 PCM 24kHz)
   const playAudioChunk = async (audioCtx: AudioContext, base64Audio: string) => {
     try {
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
       const binary = atob(base64Audio);
       const buffer = new ArrayBuffer(binary.length);
       const view = new Uint8Array(buffer);
@@ -62,7 +67,6 @@ export default function LiveAudioClient() {
       source.connect(audioCtx.destination);
 
       const currentTime = audioCtx.currentTime;
-      // If we've fallen behind, catch up to current time
       if (nextPlayTimeRef.current < currentTime) {
         nextPlayTimeRef.current = currentTime;
       }
@@ -101,18 +105,25 @@ export default function LiveAudioClient() {
       mediaStreamRef.current = stream;
 
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${wsProtocol}//${window.location.host}/api/live?venue=${encodeURIComponent(venue)}`;
+      const wsUrl = `${wsProtocol}//${window.location.host}/api/live?venue=${encodeURIComponent(venue)}&voice=${encodeURIComponent(ownerConfig.voice_name || selectedVoice.name)}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       const outputAudioCtx = new AudioContext({ sampleRate: 24000 });
+      if (outputAudioCtx.state === 'suspended') {
+        await outputAudioCtx.resume();
+      }
       audioContextRef.current = outputAudioCtx;
 
       const inputAudioCtx = new AudioContext({ sampleRate: 16000 });
+      if (inputAudioCtx.state === 'suspended') {
+        await inputAudioCtx.resume();
+      }
       inputAudioCtxRef.current = inputAudioCtx;
       
       const source = inputAudioCtx.createMediaStreamSource(stream);
-      const processor = inputAudioCtx.createScriptProcessor(4096, 1, 1);
+      // Low latency buffer: 2048 samples (128ms)
+      const processor = inputAudioCtx.createScriptProcessor(2048, 1, 1);
       
       processor.onaudioprocess = (e) => {
         if (ws.readyState === WebSocket.OPEN && !isMuted) {
@@ -130,26 +141,26 @@ export default function LiveAudioClient() {
       };
 
       ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        if (msg.audio) {
-          playAudioChunk(outputAudioCtx, msg.audio);
-        }
-        if (msg.interrupted) {
-          activeSourcesRef.current.forEach(source => {
-            try {
-              source.stop();
-            } catch (e) {
-              // Ignore if already stopped
-            }
-          });
-          activeSourcesRef.current = [];
-          nextPlayTimeRef.current = outputAudioCtx.currentTime;
-        }
-        if (msg.functionCall) {
-          setExtractedData(msg.functionCall.arguments);
-        }
-        if (msg.status === 'disconnected') {
-          endCall();
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.audio) {
+            playAudioChunk(outputAudioCtx, msg.audio);
+          }
+          if (msg.interrupted) {
+            activeSourcesRef.current.forEach(s => {
+              try { s.stop(); } catch (e) {}
+            });
+            activeSourcesRef.current = [];
+            nextPlayTimeRef.current = outputAudioCtx.currentTime;
+          }
+          if (msg.functionCall) {
+            setExtractedData(msg.functionCall.arguments);
+          }
+          if (msg.status === 'disconnected') {
+            endCall();
+          }
+        } catch (e) {
+          console.error("Error handling ws message", e);
         }
       };
 
@@ -177,8 +188,10 @@ export default function LiveAudioClient() {
     nextPlayTimeRef.current = 0;
 
     if (wsRef.current) {
-      wsRef.current.send(JSON.stringify({ end: true }));
-      wsRef.current.close();
+      try {
+        wsRef.current.send(JSON.stringify({ end: true }));
+        wsRef.current.close();
+      } catch (e) {}
       wsRef.current = null;
     }
     if (mediaStreamRef.current) {
@@ -216,21 +229,15 @@ export default function LiveAudioClient() {
         {/* Header */}
         <header className="h-16 flex items-center justify-between px-6 border-b border-[#22242A] bg-[#0A0A0C]/50 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-4">
-            <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700">
-              <span className="font-bold text-sm">FC</span>
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#D4AF37] to-[#B38F24] flex items-center justify-center text-black font-bold text-xs">
+              LP
             </div>
-            <h1 className="font-semibold tracking-wide text-zinc-100">Freehouse Collective</h1>
+            <h1 className="font-semibold tracking-wide text-zinc-100">{ownerConfig.restaurant_name} Live Concierge</h1>
           </div>
           <div>
-            <select 
-              value={venue}
-              onChange={(e) => setVenue(e.target.value)}
-              className="bg-[#131418] border border-[#22242A] rounded-md px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-zinc-500 text-zinc-300"
-            >
-              <option value="Lamplighter (Gastown)">Lamplighter (Gastown)</option>
-              <option value="Clough Club">Clough Club</option>
-              <option value="Sing Sing (Main St)">Sing Sing (Main St)</option>
-            </select>
+            <span className="bg-[#131418] border border-[#22242A] rounded-md px-3 py-1.5 text-xs font-mono text-zinc-300">
+              {venue}
+            </span>
           </div>
         </header>
 
@@ -238,7 +245,7 @@ export default function LiveAudioClient() {
         <main className="flex-1 flex flex-col items-center justify-center p-8 relative">
           <div className="absolute top-6 right-6 flex items-center gap-2 text-xs font-mono text-zinc-500 bg-[#131418] px-3 py-1 rounded-full border border-[#22242A]">
             <Activity className="w-3 h-3 text-emerald-500" />
-            <span>{callState === 'Live' ? latency : '--'}</span>
+            <span>{callState === 'Live' ? latency : 'Voice Gateway Ready'}</span>
           </div>
 
           <div className="flex-1 flex items-center justify-center w-full">
@@ -287,7 +294,7 @@ export default function LiveAudioClient() {
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-full font-medium transition-colors"
               >
                 <Phone className="w-4 h-4 fill-current" />
-                Start Call
+                Start Live Voice Call
               </button>
             ) : (
               <>
@@ -326,18 +333,18 @@ export default function LiveAudioClient() {
       {/* Right Drawer (JSON Extraction) */}
       <aside className="w-96 flex flex-col bg-[#0A0A0C] shrink-0">
         <div className="h-16 flex items-center px-6 border-b border-[#22242A] bg-[#0A0A0C]/50 backdrop-blur-md">
-          <h2 className="font-medium text-sm text-zinc-400 tracking-wide uppercase">Live Extraction</h2>
+          <h2 className="font-medium text-sm text-zinc-400 tracking-wide uppercase font-mono">Real-time Call Payload</h2>
         </div>
         <div className="flex-1 p-6 overflow-y-auto">
           <div className="bg-[#131418] border border-[#22242A] rounded-lg p-4 h-full overflow-y-auto font-mono text-xs text-zinc-300 shadow-inner">
             {extractedData ? (
               <pre className="whitespace-pre-wrap break-words">
-                <span className="text-pink-400">const</span> <span className="text-blue-400">reservationData</span> = {JSON.stringify(extractedData, null, 2)}
+                <span className="text-pink-400">const</span> <span className="text-blue-400">orderPayload</span> = {JSON.stringify(extractedData, null, 2)}
               </pre>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-zinc-600 space-y-4">
                 <Activity className="w-8 h-8 opacity-20" />
-                <p>Waiting for agent handoff...</p>
+                <p>Waiting for agent tool emission...</p>
               </div>
             )}
           </div>

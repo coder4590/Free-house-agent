@@ -23,7 +23,7 @@ export interface OwnerMenuItem {
   item_name: string;
   description: string;
   price: number;
-  station: 'Noodle Line' | 'Pizza Oven' | 'Grill' | 'Fryer' | 'Bar';
+  station: 'Noodle Line' | 'Pizza Oven' | 'Grill' | 'Fryer' | 'Bar' | 'Salad Pantry';
   cook_time_minutes: number;
   dietary_tags: string[];
   is_86?: boolean;
@@ -42,12 +42,21 @@ export interface VoiceOption {
 
 export const GEMINI_LIVE_VOICES: VoiceOption[] = [
   {
+    id: 'Leda',
+    name: 'Leda',
+    gender: 'Female',
+    label: 'Leda - Warm Female',
+    tone: 'Welcoming, empathetic, lively Canadian host',
+    previewPhrase: "Hi there! Welcome to leed pizza on Main. Looking for a table or checking out our fresh hot pizza list?",
+    pitch: 'Gentle Warm Alto'
+  },
+  {
     id: 'Puck',
     name: 'Puck',
     gender: 'Male',
     label: 'Puck - Energetic Male',
     tone: 'Brisk, upbeat, modern hospitality cadence',
-    previewPhrase: "Welcome to Sing Sing Main St! I've got your table ready or can set up takeout right away.",
+    previewPhrase: "Welcome to leed pizza Main St! I've got your table ready or can set up takeout right away.",
     pitch: 'Natural High-Tenor'
   },
   {
@@ -56,7 +65,7 @@ export const GEMINI_LIVE_VOICES: VoiceOption[] = [
     gender: 'Female',
     label: 'Aoede - Professional Female',
     tone: 'Crisp, articulate, polished concierge',
-    previewPhrase: "Good evening. Welcome to Sing Sing. Allow me to assist with reservations and wine pairings tonight.",
+    previewPhrase: "Good evening. Welcome to leed pizza. Allow me to assist with dinner reservations and artisan pairings tonight.",
     pitch: 'Polished Alto'
   },
   {
@@ -65,7 +74,7 @@ export const GEMINI_LIVE_VOICES: VoiceOption[] = [
     gender: 'Male',
     label: 'Charon - Deep Male',
     tone: 'Calm, authoritative, warm baritone',
-    previewPhrase: "Hey there, thanks for checking in with Sing Sing on Main. Let's get your party situated.",
+    previewPhrase: "Hey there, thanks for checking in with leed pizza on Main. Let's get your party situated.",
     pitch: 'Deep Resonant Baritone'
   },
   {
@@ -74,7 +83,7 @@ export const GEMINI_LIVE_VOICES: VoiceOption[] = [
     gender: 'Female',
     label: 'Kore - Calming Female',
     tone: 'Warm, relaxed, friendly neighborhood vibe',
-    previewPhrase: "Thanks for calling Sing Sing! So happy to help you with dinner or fresh pizza takeout.",
+    previewPhrase: "Thanks for calling leed pizza! So happy to help you with dinner or fresh pizza takeout.",
     pitch: 'Warm Melodic Soprano'
   },
   {
@@ -83,17 +92,8 @@ export const GEMINI_LIVE_VOICES: VoiceOption[] = [
     gender: 'Male',
     label: 'Fenrir - Authoritative Male',
     tone: 'Sharp, executive, focused sommelier demeanor',
-    previewPhrase: "Sing Sing floor command. Let's secure your seating or fire an order into the kitchen.",
+    previewPhrase: "leed pizza floor command. Let's secure your seating or fire an order into the kitchen.",
     pitch: 'Crisp Mid-Baritone'
-  },
-  {
-    id: 'Leda',
-    name: 'Leda',
-    gender: 'Female',
-    label: 'Leda - Warm Female',
-    tone: 'Welcoming, empathetic, lively Canadian host',
-    previewPhrase: "Hi there! Welcome to Sing Sing on Main. Looking for a table or checking out the tap list?",
-    pitch: 'Gentle Warm Alto'
   }
 ];
 
@@ -127,13 +127,13 @@ interface OwnerConfigContextType {
 }
 
 const DEFAULT_CONFIG: OwnerPersonaConfig & { voice_label: string; last_deployed_at: string; venue: string } = {
-  restaurant_name: 'Sing Sing Beer & Pizza',
-  greeting: 'Thanks for calling Sing Sing Beer & Pizza, this is your virtual host, how can I help you today?',
+  restaurant_name: 'leed pizza',
+  greeting: 'Thanks for calling leed pizza, this is your virtual host, how can I help you today?',
   tone: 'Lively & Casual',
-  voice_name: 'Puck',
-  voice_label: 'Puck - Energetic Male',
+  voice_name: 'Leda',
+  voice_label: 'Leda - Warm Female',
   canadian_dialect: true,
-  venue: 'Sing Sing Main St',
+  venue: 'leed pizza Main St',
   last_deployed_at: new Date().toISOString()
 };
 
@@ -156,81 +156,81 @@ const DEFAULT_TABLES: FloorTable[] = [
 
 const DEFAULT_MENU: OwnerMenuItem[] = [
   {
-    item_id: "SS_PHO_BO",
-    venue: "Sing Sing Main St",
-    item_name: "Pho Bo",
-    description: "Rare steak, beef brisket, bean sprouts, cilantro, green onion, basil, rice noodles",
-    price: 18.25,
-    station: "Noodle Line",
-    cook_time_minutes: 6,
-    dietary_tags: ["Dairy-Free"],
-    ai_description: "Recommend as our signature rich 12-hour beef broth bowl with tender sliced brisket."
-  },
-  {
-    item_id: "SS_PHO_GA",
-    venue: "Sing Sing Main St",
-    item_name: "Pho Ga",
-    description: "Lemongrass chicken, quail eggs, bean sprouts, cilantro, green onion, basil, rice noodles",
-    price: 17.75,
-    station: "Noodle Line",
-    cook_time_minutes: 6,
-    dietary_tags: ["Dairy-Free"],
-    ai_description: "Lighter poultry alternative infused with fragrant lemongrass and poached quail eggs."
-  },
-  {
-    item_id: "SS_PIZZA_BRISKET",
-    venue: "Sing Sing Main St",
-    item_name: "Brisket & Kimchi Pizza",
-    description: "Hoisin, mozzarella, green onion, pickled onion, spicy mayo, sesame",
-    price: 21.25,
+    item_id: "LP_PEPPERONI",
+    venue: "leed pizza Main St",
+    item_name: "Classic Pepperoni Pizza",
+    description: "Crispy cups, mozzarella, hot honey drizzle, fresh basil on sourdough crust",
+    price: 20.50,
     station: "Pizza Oven",
     cook_time_minutes: 4,
-    dietary_tags: [],
-    ai_description: "Our #1 crowd-pleasing sourdough pizza combining sweet hoisin glaze and tangy kimchi crunch."
+    dietary_tags: ["Popular"],
+    ai_description: "Our signature pizza with crispy cupping pepperoni, aged mozzarella, and spicy-sweet hot honey."
   },
   {
-    item_id: "SS_PIZZA_MARGHERITA",
-    venue: "Sing Sing Main St",
+    item_id: "LP_MARGHERITA",
+    venue: "leed pizza Main St",
     item_name: "Margherita Pizza",
-    description: "Mozzarella, tomato sauce, pesto, fresh basil",
+    description: "San Marzano DOP tomato sauce, fresh fior di latte mozzarella, sweet basil, EVOO",
     price: 18.75,
     station: "Pizza Oven",
     cook_time_minutes: 3,
     dietary_tags: ["Vegetarian"],
-    ai_description: "Classic Neapolitan-style with house tomato sauce, fresh buffalo mozzarella, and basil."
+    ai_description: "Traditional wood-fired Neapolitan style with sweet Italian basil and vibrant tomato sauce."
   },
   {
-    item_id: "SS_BURG_KATSU",
-    venue: "Sing Sing Main St",
-    item_name: "Katsu Chicken Burger",
-    description: "Crispy fried, bulldog sauce, cabbage, kewpie, potato roll",
-    price: 22.25,
-    station: "Grill",
+    item_id: "LP_TRUFFLE_MUSHROOM",
+    venue: "leed pizza Main St",
+    item_name: "Truffle Wild Mushroom Pizza",
+    description: "Roasted cremini & oyster mushrooms, fontina, white truffle oil, fresh thyme",
+    price: 22.00,
+    station: "Pizza Oven",
+    cook_time_minutes: 4,
+    dietary_tags: ["Vegetarian"],
+    ai_description: "Rich, aromatic, and savory with melted fontina cheese and cold-pressed white truffle oil."
+  },
+  {
+    item_id: "LP_HOT_HONEY_WINGS",
+    venue: "leed pizza Main St",
+    item_name: "Hot Honey Garlic Wings",
+    description: "Crispy double-dredged chicken wings tossed in garlic hot honey reduction",
+    price: 16.50,
+    station: "Fryer",
     cook_time_minutes: 10,
-    dietary_tags: [],
-    ai_description: "Super crispy panko-crusted chicken thigh topped with shredded cabbage and Japanese Kewpie."
+    dietary_tags: ["Gluten-Free Available"],
+    ai_description: "Crispy and juicy with the perfect harmony of fiery habanero warmth and clover honey."
   },
   {
-    item_id: "SS_SNACK_WINGS",
-    venue: "Sing Sing Main St",
-    item_name: "Wings",
-    description: "Red chili sauce, sriracha parm dip",
-    price: 17.75,
-    station: "Fryer",
-    cook_time_minutes: 12,
-    dietary_tags: [],
-    ai_description: "One pound of jumbo wings tossed in sweet red chili glaze with house sriracha parmesan dip."
+    item_id: "LP_CAESAR_SALAD",
+    venue: "leed pizza Main St",
+    item_name: "Tuscan Caesar Salad",
+    description: "Crisp romaine hearts, shaved 24-month pecorino romano, sourdough crisps, house emulsion",
+    price: 14.00,
+    station: "Salad Pantry",
+    cook_time_minutes: 2,
+    dietary_tags: ["Vegetarian"],
+    ai_description: "Crisp, bright starter salad with savoury umami dressing."
   },
   {
-    item_id: "SS_SNACK_CALAMARI",
-    venue: "Sing Sing Main St",
-    item_name: "Calamari",
-    description: "Salsa verde, citrus, smoked paprika",
-    price: 18.25,
+    item_id: "LP_CALAMARI",
+    venue: "leed pizza Main St",
+    item_name: "Crispy Salt & Pepper Calamari",
+    description: "Flash-fried squid with charred citrus aioli, fresh jalapeño rings, and smoked sea salt",
+    price: 18.00,
     station: "Fryer",
-    cook_time_minutes: 8,
+    cook_time_minutes: 6,
     dietary_tags: ["Pescatarian"],
-    ai_description: "Crisp salt & pepper squid served with bright house salsa verde and lemon."
+    ai_description: "Tender flash-fried calamari with crispy coating and tangy house aioli."
+  },
+  {
+    item_id: "LP_CRAFT_IPA",
+    venue: "leed pizza Main St",
+    item_name: "House Hazy IPA Pint",
+    description: "Fresh local draft IPA with tropical citrus notes",
+    price: 8.50,
+    station: "Bar",
+    cook_time_minutes: 1,
+    dietary_tags: ["Alcohol"],
+    ai_description: "Refreshing and fruity local IPA that cuts through rich cheese and pepperoni."
   }
 ];
 
@@ -257,7 +257,12 @@ export function OwnerConfigProvider({ children }: { children: React.ReactNode })
         const data = await res.json();
         if (data.success && isMounted) {
           if (data.config) {
-            setOwnerConfig(prev => ({ ...prev, ...data.config }));
+            setOwnerConfig(prev => ({
+              ...prev,
+              ...data.config,
+              restaurant_name: data.config.restaurant_name || 'leed pizza',
+              venue: data.config.venue || `${data.config.restaurant_name || 'leed pizza'} Main St`
+            }));
           }
           if (Array.isArray(data.floorTables) && data.floorTables.length > 0) {
             setFloorTables(data.floorTables);
@@ -288,10 +293,13 @@ export function OwnerConfigProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const updateOwnerConfig = useCallback((partial: Partial<OwnerPersonaConfig>) => {
-    setOwnerConfig(prev => ({
-      ...prev,
-      ...partial
-    }));
+    setOwnerConfig(prev => {
+      const updated = { ...prev, ...partial };
+      if (partial.restaurant_name && !partial.venue) {
+        updated.venue = `${partial.restaurant_name} Main St`;
+      }
+      return updated;
+    });
     setHasUnsavedChanges(true);
   }, []);
 
@@ -338,15 +346,15 @@ export function OwnerConfigProvider({ children }: { children: React.ReactNode })
   // Menu operations
   const addMenuItem = useCallback((item: Omit<OwnerMenuItem, 'item_id'>) => {
     const slug = item.item_name.toUpperCase().replace(/[^A-Z0-9]/g, '_').slice(0, 12);
-    const newId = `SS_CUSTOM_${slug}_${Math.floor(100 + Math.random() * 900)}`;
+    const newId = `LP_CUSTOM_${slug}_${Math.floor(100 + Math.random() * 900)}`;
     const newItem: OwnerMenuItem = {
       ...item,
       item_id: newId,
-      venue: 'Sing Sing Main St'
+      venue: ownerConfig.venue || `${ownerConfig.restaurant_name} Main St`
     };
     setMenuItems(prev => [newItem, ...prev]);
     setHasUnsavedChanges(true);
-  }, []);
+  }, [ownerConfig.venue, ownerConfig.restaurant_name]);
 
   const updateMenuItem = useCallback((itemId: string, partial: Partial<OwnerMenuItem>) => {
     setMenuItems(prev => prev.map(i => {
@@ -403,24 +411,7 @@ export function OwnerConfigProvider({ children }: { children: React.ReactNode })
       if (data.success) {
         setHasUnsavedChanges(false);
         setDeploySuccess(true);
-        setLastDeployedMessage(`Live Voice AI, Floor Grid (${floorTables.length} tables), and Menu (${menuItems.length} items) compiled successfully.`);
-        
-        // Audio feedback cue (soft synthesizer beep if Web Audio supported)
-        if (typeof window !== 'undefined' && window.AudioContext) {
-          try {
-            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-            osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
-            gain.gain.setValueAtTime(0.08, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.25);
-          } catch (e) {}
-        }
+        setLastDeployedMessage(`Live Voice AI, Floor Grid (${floorTables.length} tables), and Menu (${menuItems.length} items) compiled successfully into SQLite.`);
         
         setTimeout(() => setDeploySuccess(false), 4000);
         return true;

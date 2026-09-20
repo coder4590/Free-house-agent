@@ -295,7 +295,7 @@ function WebhookInspectorModal({
   const contractJson = {
     contract_version: "2.1",
     ingested_via: "/api/webhooks/delivery",
-    venue: "Sing Sing Main St",
+    venue: "leed pizza Main St",
     order_number: order.orderNumber,
     platform: order.platform,
     customer: {

@@ -5,12 +5,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, Clock, CheckCircle, AlertCircle, Utensils, 
   CreditCard, Trash2, ChevronRight, Phone, PhoneOff, 
-  Coffee, Lock, Menu, X, Activity, Mic, MicOff, Volume2, Sparkles, Radio
+  Coffee, Lock, Menu, X, Activity, Mic, MicOff, Volume2, Sparkles, Radio, Database
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useKDS } from '@/lib/kdsContext';
 import { MENU_MATRIX } from '@/lib/menuMatrix';
 import { useOwnerConfig } from '@/lib/ownerConfigContext';
+import VoiceRecordingsModal from '@/components/VoiceRecordingsModal';
 
 type DiningStage = 'AVAILABLE' | 'LOCKED' | 'SEATED' | 'APPS_FIRED' | 'MAINS_CLEARED' | 'CHECK_DROPPED' | 'BUSSING_NEEDED';
 
@@ -129,7 +130,81 @@ export default function FloorCommand() {
   const [isMuted, setIsMuted] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
   const [recentChecks, setRecentChecks] = useState<AvailabilityCheck[]>([]);
+  const [recordingsModalOpen, setRecordingsModalOpen] = useState(false);
   const selectedVenue = ownerConfig.venue || ownerConfig.restaurant_name || 'Main Dining Room';
+
+  // SQLite Seating Plan Synchronization
+  useEffect(() => {
+    async function loadSeatingFromDb() {
+      try {
+        const res = await fetch('/api/db/seating');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.tables) && data.tables.length > 0) {
+            setTables(data.tables);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load seating from SQLite', e);
+      }
+    }
+    loadSeatingFromDb();
+  }, []);
+
+  // Persist table status changes to SQLite (debounced)
+  useEffect(() => {
+    if (tables && tables.length > 0) {
+      const timer = setTimeout(async () => {
+        try {
+          await fetch('/api/db/seating', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tables })
+          });
+        } catch (e) {
+          console.warn('Could not persist seating to SQLite', e);
+        }
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [tables]);
+
+  // Helper to persist calls into SQLite
+  const saveCallToDb = useCallback(async (callData: {
+    caller_name: string;
+    caller_phone?: string;
+    duration_seconds?: number;
+    intent: 'reservation' | 'takeout' | 'inquiry';
+    transcript?: any[];
+    tool_calls?: any[];
+    reservation_summary?: string;
+    order_summary?: string;
+  }) => {
+    try {
+      await fetch('/api/db/calls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caller_name: callData.caller_name,
+          caller_phone: callData.caller_phone || 'Private Caller ID',
+          venue: selectedVenue,
+          duration_seconds: callData.duration_seconds || 45,
+          status: 'completed',
+          intent: callData.intent,
+          transcript: callData.transcript || [
+            { role: 'agent', text: ownerConfig.greeting || `Thanks for calling ${ownerConfig.restaurant_name}`, timestamp: '00:01' },
+            { role: 'user', text: `Inbound voice request for ${callData.intent}`, timestamp: '00:15' },
+            { role: 'agent', text: 'Confirmed and locked into venue database.', timestamp: '00:30' }
+          ],
+          tool_calls: callData.tool_calls || [],
+          reservation_summary: callData.reservation_summary,
+          order_summary: callData.order_summary
+        })
+      });
+    } catch (e) {
+      console.warn('Could not save call to SQLite', e);
+    }
+  }, [selectedVenue, ownerConfig.greeting, ownerConfig.restaurant_name]);
   
   const [liveCallMessage, setLiveCallMessage] = useState<string | null>(null);
   const lastLiveMessage = (callState === 'Disconnected' && !liveCallMessage)
@@ -292,13 +367,20 @@ export default function FloorCommand() {
       wsRef.current = ws;
 
       const outputAudioCtx = new AudioContext({ sampleRate: 24000 });
+      if (outputAudioCtx.state === 'suspended') {
+        await outputAudioCtx.resume();
+      }
       audioContextRef.current = outputAudioCtx;
 
       const inputAudioCtx = new AudioContext({ sampleRate: 16000 });
+      if (inputAudioCtx.state === 'suspended') {
+        await inputAudioCtx.resume();
+      }
       inputAudioCtxRef.current = inputAudioCtx;
       
       const source = inputAudioCtx.createMediaStreamSource(stream);
-      const processor = inputAudioCtx.createScriptProcessor(4096, 1, 1);
+      // Low latency buffer: 2048 samples (128ms) for responsive voice streaming
+      const processor = inputAudioCtx.createScriptProcessor(2048, 1, 1);
       
       processor.onaudioprocess = (e) => {
         if (ws.readyState === WebSocket.OPEN && !isMuted) {
@@ -367,13 +449,20 @@ export default function FloorCommand() {
               time: confirmedTime,
               phone: customerPhone,
               venue,
-              tags: ['GREEN_LIGHT_VERIFIED', customerPhone ? `SMS: ${customerPhone}` : 'PostgreSQL Lock'],
+              tags: ['GREEN_LIGHT_VERIFIED', customerPhone ? `SMS: ${customerPhone}` : 'SQLite Lock'],
               status: 'PENDING',
               source: 'VOICE_CALL',
             };
 
             handleNewReservation(voiceReq);
-            setLastLiveMessage(`FINAL LOCK: Contract approved. Party of ${partySize} @ ${confirmedTime} locked in PostgreSQL for ${customerName}. SMS queued.`);
+            saveCallToDb({
+              caller_name: customerName,
+              caller_phone: customerPhone,
+              intent: 'reservation',
+              tool_calls: [{ name: 'submit_reservation_data', args }],
+              reservation_summary: `Party of ${partySize} @ ${confirmedTime} locked for ${customerName}`
+            });
+            setLastLiveMessage(`FINAL LOCK: Contract approved. Party of ${partySize} @ ${confirmedTime} locked in SQLite for ${customerName}. SMS queued.`);
           }
 
           // Tool Event 3: Real Food Order Handoff to Phase 3 KDS Pacing Engine
@@ -396,6 +485,13 @@ export default function FloorCommand() {
 
             if (matchedItems.length > 0) {
               createInboundOrder('VOICE_CALL', matchedItems, `${customerName} (${timing})`);
+              saveCallToDb({
+                caller_name: customerName,
+                caller_phone: customerPhone,
+                intent: 'takeout',
+                tool_calls: [{ name: 'submit_food_order', args }],
+                order_summary: `${matchedItems.length} items ordered for ${customerName} (${timing})`
+              });
               setLastLiveMessage(`KDS PACING FIRED: ${matchedItems.length} items routed to Kitchen Expo for ${customerName}. Secure payment SMS dispatched to ${customerPhone || 'guest phone'}.`);
             }
           }
@@ -501,7 +597,18 @@ export default function FloorCommand() {
         };
 
         handleNewReservation(voiceReq);
-        setLastLiveMessage('FINAL LOCK: submit_reservation_data executed! Table locked in PostgreSQL for Alexander Wright (4 @ 19:30).');
+        saveCallToDb({
+          caller_name: 'Alexander Wright',
+          caller_phone: '604-555-0199',
+          intent: 'reservation',
+          tool_calls: [
+            { name: 'check_availability', args: { party_size: 4, target_time: '20:00' }, result: { status: 'unavailable', alternatives: ['19:30', '20:45'] } },
+            { name: 'check_availability', args: { party_size: 4, target_time: '19:30' }, result: { status: 'available' } },
+            { name: 'submit_reservation_data', args: { customer_name: 'Alexander Wright', party_size: 4, confirmed_time: '19:30', customer_phone: '604-555-0199' } }
+          ],
+          reservation_summary: 'Table locked for Alexander Wright (4 @ 19:30) pivoted from 20:00'
+        });
+        setLastLiveMessage('FINAL LOCK: submit_reservation_data executed! Table locked in SQLite for Alexander Wright (4 @ 19:30).');
       }, 1000);
     }, 1500);
   };
@@ -533,7 +640,17 @@ export default function FloorCommand() {
       };
 
       handleNewReservation(voiceReq);
-      setLastLiveMessage('FINAL LOCK: submit_reservation_data executed for Elena Rostova (2 @ 19:00). Table locked!');
+      saveCallToDb({
+        caller_name: 'Elena Rostova',
+        caller_phone: '604-555-0284',
+        intent: 'reservation',
+        tool_calls: [
+          { name: 'check_availability', args: { party_size: 2, target_time: '19:00' }, result: { status: 'available' } },
+          { name: 'submit_reservation_data', args: { customer_name: 'Elena Rostova', party_size: 2, confirmed_time: '19:00', customer_phone: '604-555-0284' } }
+        ],
+        reservation_summary: 'Direct match table locked for Elena Rostova (2 @ 19:00)'
+      });
+      setLastLiveMessage('FINAL LOCK: submit_reservation_data executed for Elena Rostova (2 @ 19:00). Table locked in SQLite!');
     }, 900);
   };
 
@@ -822,6 +939,20 @@ export default function FloorCommand() {
                     {ownerConfig.venue || 'Main St'} • {selectedVoice.name} Voice
                   </span>
                 </div>
+
+                {/* SQLite Voice Call Vault & Recordings Button */}
+                <button
+                  onClick={() => setRecordingsModalOpen(true)}
+                  className="w-full flex items-center justify-between px-3 py-2 bg-[#14151B] hover:bg-[#1A1C24] border border-zinc-800 hover:border-emerald-500/40 rounded-lg text-xs font-mono transition-all group shadow-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <Database size={13} className="text-emerald-400 group-hover:scale-110 transition-transform" />
+                    <span className="text-zinc-200 font-semibold">SQLite Call Recordings Vault</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                    View Logs
+                  </span>
+                </button>
 
                 {/* Live Call Controller & Audio Waveform */}
                 <div className="bg-[#0A0A0C] border border-[#22242A] rounded-lg p-3 flex flex-col gap-3">
@@ -1357,6 +1488,13 @@ export default function FloorCommand() {
         </AnimatePresence>
 
       </div>
+
+      {/* Persistent SQLite Voice Call Vault & Recordings Modal */}
+      <VoiceRecordingsModal 
+        isOpen={recordingsModalOpen} 
+        onClose={() => setRecordingsModalOpen(false)} 
+        venueName={selectedVenue} 
+      />
     </div>
   );
 }

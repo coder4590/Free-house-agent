@@ -310,7 +310,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
 
   // Ingestion Engine / Webhook Simulation
   const simulateWebhook = useCallback(async (platform: DeliveryPlatform, customPayload?: any): Promise<DeliveryOrder> => {
-    // Generate realistic multi-item order from Sing Sing Menu Matrix
+    // Generate realistic multi-item order from leed pizza Menu Matrix
     const sampleCustomers = [
       { name: 'Sophie Beaulieu', phone: '+1 (604) 555-1194', addr: '3429 Main St' },
       { name: 'Liam MacIntyre', phone: '+1 (604) 555-4482', addr: '188 E 16th Ave' },

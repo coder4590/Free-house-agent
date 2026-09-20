@@ -79,7 +79,7 @@ export default function VoicePersonaConfig() {
   };
 
   const handleResetGreeting = () => {
-    const defaultGreeting = `Thanks for calling ${ownerConfig.restaurant_name || 'Sing Sing Beer & Pizza'}, this is your virtual host, how can I help you today?`;
+    const defaultGreeting = `Thanks for calling ${ownerConfig.restaurant_name || 'leed pizza'}, this is your virtual host, how can I help you today?`;
     updateOwnerConfig({ greeting: defaultGreeting });
   };
 
@@ -232,7 +232,7 @@ export default function VoicePersonaConfig() {
               value={ownerConfig.restaurant_name}
               onChange={(e) => updateOwnerConfig({ restaurant_name: e.target.value })}
               className="w-full bg-[#0A0A0C] border border-[#22242A] focus:border-[#D4AF37] rounded-lg px-3.5 py-2.5 text-sm text-white font-mono focus:outline-none transition-colors"
-              placeholder="e.g., Sing Sing Beer & Pizza"
+              placeholder="e.g., leed pizza"
             />
             <p className="text-[11px] text-zinc-500 mt-1">
               Referenced dynamically in customer greetings, confirmation SMS, and menu introductions.
@@ -288,7 +288,7 @@ export default function VoicePersonaConfig() {
               value={ownerConfig.greeting}
               onChange={(e) => updateOwnerConfig({ greeting: e.target.value })}
               className="w-full bg-[#0A0A0C] border border-[#22242A] focus:border-[#D4AF37] rounded-lg p-3.5 text-sm text-white focus:outline-none transition-colors leading-relaxed font-sans"
-              placeholder="Thanks for calling Sing Sing Beer & Pizza, this is your virtual host, how can I help you today?"
+              placeholder="Thanks for calling leed pizza, this is your virtual host, how can I help you today?"
             />
           </div>
           <div className="flex items-center justify-between text-[11px] text-zinc-500">

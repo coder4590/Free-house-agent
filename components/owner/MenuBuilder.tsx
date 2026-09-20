@@ -30,8 +30,8 @@ const DIETARY_OPTIONS = [
 
 const SAMPLE_BULK_IMPORT: OwnerMenuItem[] = [
   {
-    item_id: "SS_IMPORT_PORK_BELLY_BAO",
-    venue: "Sing Sing Main St",
+    item_id: "LP_IMPORT_PORK_BELLY_BAO",
+    venue: "leed pizza Main St",
     item_name: "Pork Belly Bao Buns (2pc)",
     description: "Slow-braised pork belly, pickled cucumber, crushed peanuts, hoisin glaze, steamed bao",
     price: 15.50,
@@ -41,8 +41,8 @@ const SAMPLE_BULK_IMPORT: OwnerMenuItem[] = [
     ai_description: "Steamy Taiwanese street bao filled with melt-in-your-mouth pork belly and sweet hoisin."
   },
   {
-    item_id: "SS_IMPORT_TRUFFLE_FRIES",
-    venue: "Sing Sing Main St",
+    item_id: "LP_IMPORT_TRUFFLE_FRIES",
+    venue: "leed pizza Main St",
     item_name: "Truffle Parm Fries",
     description: "Hand-cut fries, white truffle oil, grated grana padano, rosemary, garlic aioli",
     price: 13.00,
@@ -52,8 +52,8 @@ const SAMPLE_BULK_IMPORT: OwnerMenuItem[] = [
     ai_description: "Crispy skin-on fries drizzled with aromatic white truffle oil and fresh shaved parmesan."
   },
   {
-    item_id: "SS_IMPORT_HAZY_IPA",
-    venue: "Sing Sing Main St",
+    item_id: "LP_IMPORT_HAZY_IPA",
+    venue: "leed pizza Main St",
     item_name: "Superflux Colour & Shape IPA",
     description: "Local East Van hazy IPA on tap, tropical citrus notes, smooth oat body (6.5% ABV)",
     price: 9.75,

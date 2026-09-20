@@ -1,72 +1,79 @@
 [
   {
-    "item_id": "SS_PHO_BO",
-    "venue": "Sing Sing Main St",
-    "item_name": "Pho Bo",
-    "description": "Rare steak, beef brisket, bean sprouts, cilantro, green onion, basil, rice noodles",
-    "price": 18.25,
-    "station": "Noodle Line",
-    "cook_time_minutes": 6,
-    "dietary_tags": ["Dairy-Free"]
-  },
-  {
-    "item_id": "SS_PHO_GA",
-    "venue": "Sing Sing Main St",
-    "item_name": "Pho Ga",
-    "description": "Lemongrass chicken, quail eggs, bean sprouts, cilantro, green onion, basil, rice noodles",
-    "price": 17.75,
-    "station": "Noodle Line",
-    "cook_time_minutes": 6,
-    "dietary_tags": ["Dairy-Free"]
-  },
-  {
-    "item_id": "SS_PIZZA_BRISKET",
-    "venue": "Sing Sing Main St",
-    "item_name": "Brisket & Kimchi Pizza",
-    "description": "Hoisin, mozzarella, green onion, pickled onion, spicy mayo, sesame",
-    "price": 21.25,
+    "item_id": "LP_PEPPERONI",
+    "venue": "leed pizza Main St",
+    "item_name": "Classic Pepperoni Pizza",
+    "description": "Crispy cups, mozzarella, hot honey drizzle, fresh basil on sourdough crust",
+    "price": 20.50,
     "station": "Pizza Oven",
     "cook_time_minutes": 4,
-    "dietary_tags": []
+    "dietary_tags": ["Popular"],
+    "ai_description": "Our signature pizza with crispy cupping pepperoni, aged mozzarella, and spicy-sweet hot honey."
   },
   {
-    "item_id": "SS_PIZZA_MARGHERITA",
-    "venue": "Sing Sing Main St",
+    "item_id": "LP_MARGHERITA",
+    "venue": "leed pizza Main St",
     "item_name": "Margherita Pizza",
-    "description": "Mozzarella, tomato sauce, pesto, fresh basil",
+    "description": "San Marzano DOP tomato sauce, fresh fior di latte mozzarella, sweet basil, EVOO",
     "price": 18.75,
     "station": "Pizza Oven",
     "cook_time_minutes": 3,
-    "dietary_tags": ["Vegetarian"]
+    "dietary_tags": ["Vegetarian"],
+    "ai_description": "Traditional wood-fired Neapolitan style with sweet Italian basil and vibrant tomato sauce."
   },
   {
-    "item_id": "SS_BURG_KATSU",
-    "venue": "Sing Sing Main St",
-    "item_name": "Katsu Chicken Burger",
-    "description": "Crispy fried, bulldog sauce, cabbage, kewpie, potato roll",
-    "price": 22.25,
-    "station": "Grill",
+    "item_id": "LP_TRUFFLE_MUSHROOM",
+    "venue": "leed pizza Main St",
+    "item_name": "Truffle Wild Mushroom Pizza",
+    "description": "Roasted cremini & oyster mushrooms, fontina, white truffle oil, fresh thyme",
+    "price": 22.00,
+    "station": "Pizza Oven",
+    "cook_time_minutes": 4,
+    "dietary_tags": ["Vegetarian"],
+    "ai_description": "Rich, aromatic, and savory with melted fontina cheese and cold-pressed white truffle oil."
+  },
+  {
+    "item_id": "LP_HOT_HONEY_WINGS",
+    "venue": "leed pizza Main St",
+    "item_name": "Hot Honey Garlic Wings",
+    "description": "Crispy double-dredged chicken wings tossed in garlic hot honey reduction",
+    "price": 16.50,
+    "station": "Fryer",
     "cook_time_minutes": 10,
-    "dietary_tags": []
+    "dietary_tags": ["Gluten-Free Available"],
+    "ai_description": "Crispy and juicy with the perfect harmony of fiery habanero warmth and clover honey."
   },
   {
-    "item_id": "SS_SNACK_WINGS",
-    "venue": "Sing Sing Main St",
-    "item_name": "Wings",
-    "description": "Red chili sauce, sriracha parm dip",
-    "price": 17.75,
-    "station": "Fryer",
-    "cook_time_minutes": 12,
-    "dietary_tags": []
+    "item_id": "LP_CAESAR_SALAD",
+    "venue": "leed pizza Main St",
+    "item_name": "Tuscan Caesar Salad",
+    "description": "Crisp romaine hearts, shaved 24-month pecorino romano, sourdough crisps, house emulsion",
+    "price": 14.00,
+    "station": "Salad Pantry",
+    "cook_time_minutes": 2,
+    "dietary_tags": ["Vegetarian"],
+    "ai_description": "Crisp, bright starter salad with savoury umami dressing."
   },
   {
-    "item_id": "SS_SNACK_CALAMARI",
-    "venue": "Sing Sing Main St",
-    "item_name": "Calamari",
-    "description": "Salsa verde, citrus, smoked paprika",
-    "price": 18.25,
+    "item_id": "LP_CALAMARI",
+    "venue": "leed pizza Main St",
+    "item_name": "Crispy Salt & Pepper Calamari",
+    "description": "Flash-fried squid with charred citrus aioli, fresh jalapeño rings, and smoked sea salt",
+    "price": 18.00,
     "station": "Fryer",
-    "cook_time_minutes": 8,
-    "dietary_tags": ["Pescatarian"]
+    "cook_time_minutes": 6,
+    "dietary_tags": ["Pescatarian"],
+    "ai_description": "Tender flash-fried calamari with crispy coating and tangy house aioli."
+  },
+  {
+    "item_id": "LP_CRAFT_IPA",
+    "venue": "leed pizza Main St",
+    "item_name": "House Hazy IPA Pint",
+    "description": "Juicy draft IPA loaded with Citra and Mosaic hops, smooth oat body",
+    "price": 8.50,
+    "station": "Bar",
+    "cook_time_minutes": 1,
+    "dietary_tags": ["Alcohol"],
+    "ai_description": "Refreshing and fruity local IPA that cuts through rich cheese and pepperoni."
   }
 ]

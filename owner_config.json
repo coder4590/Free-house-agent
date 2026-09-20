@@ -1,3 +1,10 @@
 {
-  "last_deployed_at": "2026-09-19T21:26:49.456Z"
+  "restaurant_name": "leed pizza",
+  "greeting": "Thanks for calling leed pizza, this is your virtual host, how can I help you today?",
+  "tone": "Lively & Casual",
+  "voice_name": "Leda",
+  "voice_label": "Leda - Warm Female",
+  "canadian_dialect": true,
+  "venue": "leed pizza Main St",
+  "last_deployed_at": "2026-09-20T10:30:00.000Z"
 }

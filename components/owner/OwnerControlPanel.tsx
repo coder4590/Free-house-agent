@@ -5,16 +5,17 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Bot, LayoutGrid, UtensilsCrossed, Rocket, 
   Shield, CheckCircle2, RefreshCw, Layers, 
-  Sparkles, ExternalLink, ArrowRight, Store, Radio
+  Sparkles, ExternalLink, ArrowRight, Store, Radio, Sliders
 } from 'lucide-react';
 import VoicePersonaConfig from './VoicePersonaConfig';
 import FloorPlanBuilder from './FloorPlanBuilder';
 import MenuBuilder from './MenuBuilder';
 import DeployPanel from './DeployPanel';
+import MasterPromptControl from './MasterPromptControl';
 import { useOwnerConfig } from '@/lib/ownerConfigContext';
 import { cn } from '@/lib/utils';
 
-export type OwnerNavTab = 'voice' | 'floor' | 'menu' | 'deploy';
+export type OwnerNavTab = 'voice' | 'prompt' | 'floor' | 'menu' | 'deploy';
 
 interface OwnerControlPanelProps {
   onSwitchToOperations?: () => void;
@@ -37,6 +38,12 @@ export default function OwnerControlPanel({ onSwitchToOperations }: OwnerControl
       label: 'Voice AI',
       subtitle: 'Persona & Timbre',
       icon: Bot
+    },
+    {
+      id: 'prompt' as OwnerNavTab,
+      label: 'Master Prompt',
+      subtitle: 'Compiler & Directives',
+      icon: Sliders
     },
     {
       id: 'floor' as OwnerNavTab,
@@ -64,7 +71,7 @@ export default function OwnerControlPanel({ onSwitchToOperations }: OwnerControl
       <header className="h-14 border-b border-[#22242A] bg-[#0E0F12]/90 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-md bg-gradient-to-br from-[#D4AF37] to-[#B38F24] flex items-center justify-center text-black font-bold text-xs shadow-[0_0_10px_rgba(212,175,55,0.25)]">
-            SS
+            LP
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -80,7 +87,7 @@ export default function OwnerControlPanel({ onSwitchToOperations }: OwnerControl
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 bg-[#131418] border border-[#22242A] rounded-lg text-xs font-mono text-zinc-400">
             <Radio size={12} className="text-emerald-400 animate-pulse" />
-            <span className="text-zinc-300">{ownerConfig.venue || 'Main St'}</span>
+            <span className="text-zinc-300">{ownerConfig.venue || `${ownerConfig.restaurant_name} Main St`}</span>
             <span className="text-zinc-600">|</span>
             <span className="text-[#D4AF37]">{selectedVoice.name} Voice</span>
           </div>
@@ -162,10 +169,10 @@ export default function OwnerControlPanel({ onSwitchToOperations }: OwnerControl
           <div className="p-3 bg-[#131418] border border-[#22242A] rounded-xl space-y-2 text-xs">
             <div className="flex items-center gap-2 text-emerald-400 font-mono text-[11px]">
               <Shield size={13} />
-              <span>Prompt Compiler v2.4</span>
+              <span>SQLite Prompt Engine</span>
             </div>
-            <p className="text-[10px] text-zinc-400 leading-relaxed">
-              Section 1 Persona merged dynamically with Section 2 Hard-Coded Safeguards.
+            <p className="text-[10px] text-zinc-400 leading-relaxed font-mono">
+              Master control synchronized directly with local SQLite db &amp; Gemini Live runtime.
             </p>
           </div>
         </aside>
@@ -181,6 +188,7 @@ export default function OwnerControlPanel({ onSwitchToOperations }: OwnerControl
               transition={{ duration: 0.15 }}
             >
               {activeTab === 'voice' && <VoicePersonaConfig />}
+              {activeTab === 'prompt' && <MasterPromptControl />}
               {activeTab === 'floor' && <FloorPlanBuilder />}
               {activeTab === 'menu' && <MenuBuilder />}
               {activeTab === 'deploy' && <DeployPanel onSwitchToOperations={onSwitchToOperations} />}

@@ -4,7 +4,7 @@ export interface MenuItem {
   item_name: string;
   description: string;
   price: number;
-  station: 'Noodle Line' | 'Pizza Oven' | 'Grill' | 'Fryer';
+  station: 'Noodle Line' | 'Pizza Oven' | 'Grill' | 'Fryer' | 'Salad Pantry' | 'Bar';
   cook_time_minutes: number;
   dietary_tags: string[];
 }
@@ -15,7 +15,7 @@ export interface TicketItem {
   item_name: string;
   description: string;
   price: number;
-  station: 'Noodle Line' | 'Pizza Oven' | 'Grill' | 'Fryer';
+  station: 'Noodle Line' | 'Pizza Oven' | 'Grill' | 'Fryer' | 'Salad Pantry' | 'Bar';
   cook_time_minutes: number;
   dietary_tags: string[];
   
@@ -85,74 +85,74 @@ export interface KDSTicket {
 
 export const MENU_MATRIX: MenuItem[] = [
   {
-    item_id: "SS_PHO_BO",
-    venue: "Sing Sing Main St",
-    item_name: "Pho Bo",
-    description: "Rare steak, beef brisket, bean sprouts, cilantro, green onion, basil, rice noodles",
-    price: 18.25,
-    station: "Noodle Line",
-    cook_time_minutes: 6,
-    dietary_tags: ["Dairy-Free"]
-  },
-  {
-    item_id: "SS_PHO_GA",
-    venue: "Sing Sing Main St",
-    item_name: "Pho Ga",
-    description: "Lemongrass chicken, quail eggs, bean sprouts, cilantro, green onion, basil, rice noodles",
-    price: 17.75,
-    station: "Noodle Line",
-    cook_time_minutes: 6,
-    dietary_tags: ["Dairy-Free"]
-  },
-  {
-    item_id: "SS_PIZZA_BRISKET",
-    venue: "Sing Sing Main St",
-    item_name: "Brisket & Kimchi Pizza",
-    description: "Hoisin, mozzarella, green onion, pickled onion, spicy mayo, sesame",
-    price: 21.25,
+    item_id: "LP_PEPPERONI",
+    venue: "leed pizza Main St",
+    item_name: "Classic Pepperoni Pizza",
+    description: "Crispy cups, mozzarella, hot honey drizzle, fresh basil on sourdough crust",
+    price: 20.50,
     station: "Pizza Oven",
     cook_time_minutes: 4,
-    dietary_tags: []
+    dietary_tags: ["Popular"]
   },
   {
-    item_id: "SS_PIZZA_MARGHERITA",
-    venue: "Sing Sing Main St",
+    item_id: "LP_MARGHERITA",
+    venue: "leed pizza Main St",
     item_name: "Margherita Pizza",
-    description: "Mozzarella, tomato sauce, pesto, fresh basil",
+    description: "San Marzano DOP tomato sauce, fresh fior di latte mozzarella, sweet basil, EVOO",
     price: 18.75,
     station: "Pizza Oven",
     cook_time_minutes: 3,
     dietary_tags: ["Vegetarian"]
   },
   {
-    item_id: "SS_BURG_KATSU",
-    venue: "Sing Sing Main St",
-    item_name: "Katsu Chicken Burger",
-    description: "Crispy fried, bulldog sauce, cabbage, kewpie, potato roll",
-    price: 22.25,
-    station: "Grill",
+    item_id: "LP_TRUFFLE_MUSHROOM",
+    venue: "leed pizza Main St",
+    item_name: "Truffle Wild Mushroom Pizza",
+    description: "Roasted cremini & oyster mushrooms, fontina, white truffle oil, fresh thyme",
+    price: 22.00,
+    station: "Pizza Oven",
+    cook_time_minutes: 4,
+    dietary_tags: ["Vegetarian"]
+  },
+  {
+    item_id: "LP_HOT_HONEY_WINGS",
+    venue: "leed pizza Main St",
+    item_name: "Hot Honey Garlic Wings",
+    description: "Crispy double-dredged chicken wings tossed in garlic hot honey reduction",
+    price: 16.50,
+    station: "Fryer",
     cook_time_minutes: 10,
-    dietary_tags: []
+    dietary_tags: ["Gluten-Free Available"]
   },
   {
-    item_id: "SS_SNACK_WINGS",
-    venue: "Sing Sing Main St",
-    item_name: "Wings",
-    description: "Red chili sauce, sriracha parm dip",
-    price: 17.75,
-    station: "Fryer",
-    cook_time_minutes: 12,
-    dietary_tags: []
+    item_id: "LP_CAESAR_SALAD",
+    venue: "leed pizza Main St",
+    item_name: "Tuscan Caesar Salad",
+    description: "Crisp romaine hearts, shaved 24-month pecorino romano, sourdough crisps",
+    price: 14.00,
+    station: "Salad Pantry",
+    cook_time_minutes: 2,
+    dietary_tags: ["Vegetarian"]
   },
   {
-    item_id: "SS_SNACK_CALAMARI",
-    venue: "Sing Sing Main St",
-    item_name: "Calamari",
-    description: "Salsa verde, citrus, smoked paprika",
-    price: 18.25,
+    item_id: "LP_CALAMARI",
+    venue: "leed pizza Main St",
+    item_name: "Crispy Salt & Pepper Calamari",
+    description: "Flash-fried squid with charred citrus aioli and fresh jalapeño rings",
+    price: 18.00,
     station: "Fryer",
-    cook_time_minutes: 8,
+    cook_time_minutes: 6,
     dietary_tags: ["Pescatarian"]
+  },
+  {
+    item_id: "LP_CRAFT_IPA",
+    venue: "leed pizza Main St",
+    item_name: "House Hazy IPA Pint",
+    description: "Fresh local draft IPA with tropical citrus notes",
+    price: 8.50,
+    station: "Bar",
+    cook_time_minutes: 1,
+    dietary_tags: ["Alcohol"]
   }
 ];
 
@@ -161,7 +161,9 @@ export const KITCHEN_STATIONS = [
   'Pizza Oven',
   'Noodle Line',
   'Grill',
-  'Fryer'
+  'Fryer',
+  'Salad Pantry',
+  'Bar'
 ] as const;
 
 export type KitchenStation = (typeof KITCHEN_STATIONS)[number];

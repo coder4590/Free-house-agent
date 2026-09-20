@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     const unifiedContract = {
       contract_version: "2.1",
       ingested_at: new Date().toISOString(),
-      venue: "Sing Sing Main St",
+      venue: "leed pizza Main St",
       platform,
       order_number: orderId,
       customer,

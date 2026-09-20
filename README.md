@@ -1,4 +1,4 @@
-# Sing Sing Restaurant OS (Freehouse Collective)
+# leed pizza Restaurant OS
 
 Production-grade Restaurant Operating System featuring:
 - **Phase 1 & 2:** Floor Command, 15-Minute Grid Reservation Engine, and AI Voice Concierge (Gemini Multimodal Live API via WebSockets).
